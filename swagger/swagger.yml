@@ -1,0 +1,68 @@
+---
+swagger: '2.0'
+info:
+  version: 1.0.0
+  title: VPNGen /// Partner API 
+basePath: /
+paths:
+  /admin:
+    post:
+      security:
+        - Bearer: []
+      produces:
+        - application/json
+      responses:
+        201:
+          description: VPN Admin config.
+          schema:
+              $ref: "#/definitions/admin"
+        403: 
+          description: 'You do not have necessary permissions for the resource'
+        default:
+          description: error
+          schema:
+              $ref: "#/definitions/error"
+definitions:
+  admin:
+    type: object
+    required:
+      - UserName
+      - SeedMnemo
+      - WireGuardConfig
+      - WireGuardConfigName
+      - KeydeskIPv6Address
+      - PersonName
+      - PersonDesc
+      - PersonDescLink
+    properties:
+      UserName:
+        type: string
+      SeedMnemo:
+        type: string
+      WireGuardConfig:
+        type: string
+      WireGuardConfigName:
+        type: string
+      KeydeskIPv6Address:
+        type: string
+      PersonName:
+        type: string
+      PersonDesc:
+        type: string
+      PersonDescLink:
+        type: string
+  error:
+    type: object
+    required:
+      - message
+    properties:
+      code:
+        type: integer
+      message:
+        type: string
+        
+securityDefinitions:
+  Bearer:
+    type: apiKey
+    name: Authorization
+    in: header
