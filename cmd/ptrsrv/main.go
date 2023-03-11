@@ -48,7 +48,7 @@ var (
 )
 
 func main() {
-	listeners, addr, pcors, authUser, keysDir, _, certDir, err := parseArgs()
+	listeners, addr, pcors, authUser, keysDir, certDir, err := parseArgs()
 	if err != nil {
 		log.Fatalf("Can't init: %s\n", err)
 	}
@@ -165,15 +165,14 @@ func main() {
 	<-done
 }
 
-func parseArgs() ([]net.Listener, netip.AddrPort, bool, string, string, string, string, error) {
+func parseArgs() ([]net.Listener, netip.AddrPort, bool, string, string, string, error) {
 	var (
-		keydir, tokensfile, certdir string
-		addrPort                    netip.AddrPort
-		err                         error
+		keydir, certdir string
+		addrPort        netip.AddrPort
+		err             error
 	)
 
 	keyDir := flag.String("k", DefaultSSHKeysDir, "Dir for ssh keysfiles.")
-	tokensFile := flag.String("t", DefaultTokensFile, "Tokens list file.")
 	certDir := flag.String("e", DefaultCertDir, "Dir for TLS certificate and key.")
 	authUser := flag.String("u", DefaultManagementUser, "")
 
@@ -186,27 +185,22 @@ func parseArgs() ([]net.Listener, netip.AddrPort, bool, string, string, string, 
 
 	keydir, err = filepath.Abs(*keyDir)
 	if err != nil {
-		return nil, addrPort, false, "", "", "", "", fmt.Errorf("keydir: %w", err)
-	}
-
-	tokensfile, err = filepath.Abs(*tokensFile)
-	if err != nil {
-		return nil, addrPort, false, "", "", "", "", fmt.Errorf("keydir: %w", err)
+		return nil, addrPort, false, "", "", "", fmt.Errorf("keydir: %w", err)
 	}
 
 	certdir, err = filepath.Abs(*certDir)
 	if err != nil {
-		return nil, addrPort, false, "", "", "", "", fmt.Errorf("certdir: %w", err)
+		return nil, addrPort, false, "", "", "", fmt.Errorf("certdir: %w", err)
 	}
 
 	if *authUser == "" {
-		return nil, addrPort, false, "", "", "", "", fmt.Errorf("user: %w", ErrEmptyAuthUser)
+		return nil, addrPort, false, "", "", "", fmt.Errorf("user: %w", ErrEmptyAuthUser)
 	}
 
 	if *addr != "-" {
 		addrPort, err = netip.ParseAddrPort(*addr)
 		if err != nil {
-			return nil, addrPort, false, "", "", "", "", fmt.Errorf("ministry addr: %w", err)
+			return nil, addrPort, false, "", "", "", fmt.Errorf("ministry addr: %w", err)
 		}
 	}
 
@@ -215,18 +209,18 @@ func parseArgs() ([]net.Listener, netip.AddrPort, bool, string, string, string, 
 	for _, laddr := range strings.Split(*listenAddr, ",") {
 		l, err := net.Listen("tcp", laddr)
 		if err != nil {
-			return nil, addrPort, false, "", "", "", "", fmt.Errorf("cannot listen: %w", err)
+			return nil, addrPort, false, "", "", "", fmt.Errorf("cannot listen: %w", err)
 		}
 
 		listeners = append(listeners, l)
 	}
 
 	if len(listeners) != 1 && len(listeners) != 2 {
-		return nil, addrPort, false, "", "", "", "", fmt.Errorf("unexpected number of litening (%d != 1|2)",
+		return nil, addrPort, false, "", "", "", fmt.Errorf("unexpected number of litening (%d != 1|2)",
 			len(listeners))
 	}
 
-	return listeners, addrPort, *pcors, *authUser, keydir, tokensfile, certdir, nil
+	return listeners, addrPort, *pcors, *authUser, keydir, certdir, nil
 }
 
 func initSwaggerAPI(
