@@ -4,7 +4,7 @@ import (
 	"crypto/ed25519"
 	"crypto/sha256"
 	"crypto/x509"
-	"encoding/hex"
+	"encoding/base64"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -44,9 +44,9 @@ func ValidateBearer(m AuthMap) func(string) (interface{}, error) {
 		}
 
 		tokenSha256 := sha256.Sum256([]byte(bearerToken))
-		tokenDgst := hex.EncodeToString(tokenSha256[:])
+		tokenDgst := base64.StdEncoding.WithPadding(base64.StdPadding).EncodeToString(tokenSha256[:])
 
-		fmt.Fprintf(os.Stderr, "TOKEN: %s\n", bearerHeader)
+		fmt.Fprintf(os.Stderr, "TOKEN: %s\n", bearerToken)
 
 		if a, ok := m[tokenDgst]; ok {
 			return a, nil
@@ -79,8 +79,7 @@ func ReadKeysDir(keysDir, username string) (AuthMap, error) {
 			continue
 		}
 
-		tokenSha256 := sha256.Sum256([]byte(opts[1]))
-		tokenDgst := hex.EncodeToString(tokenSha256[:])
+		tokenDgst := opts[1]
 
 		list := strings.Split(opts[2], ",")
 		acl := []netip.Prefix{}

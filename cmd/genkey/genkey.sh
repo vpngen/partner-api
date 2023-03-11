@@ -24,7 +24,7 @@ ALLOWED=${2:-"0.0.0.0/0"}
 
 TOKEN=$(dd if=/dev/urandom bs=32 count=1 status=none | basenc --base64url)
 
-dgst=$(echo "${TOKEN}" | openssl dgst -binary -sha256 | basenc --base64)
+dgst=$(echo -n "${TOKEN}" | openssl dgst -binary -sha256 | basenc --base64)
 
 comment=";${dgst};${ALLOWED}"
 
