@@ -34,7 +34,7 @@ func CheckReqLimit(dbase *badger.DB, token [32]byte) (bool, error) {
 		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
 			item := it.Item()
 			k := item.Key()
-			fmt.Fprintf(os.Stderr, "key=%s\n", k)
+			fmt.Fprintf(os.Stderr, "found key=%x\n", k)
 			count++
 		}
 
@@ -42,6 +42,8 @@ func CheckReqLimit(dbase *badger.DB, token [32]byte) (bool, error) {
 	}); err != nil {
 		return false, fmt.Errorf("count: %w", err)
 	}
+
+	fmt.Fprintf(os.Stderr, "count=%d\n", count)
 
 	if count > reqLimitNumber {
 		return false, nil
