@@ -1,194 +1,183 @@
 package ptrapi
 
+/*
+Just for parse SSH Private Key
+*/
+
 import (
-	"bufio"
-	"bytes"
-	"encoding/base64"
+	"crypto/ed25519"
+	"crypto/x509"
+	"encoding/pem"
+	"errors"
 	"fmt"
-	"io"
-	"math/rand"
-	"net/http/httputil"
-	"net/netip"
-	"os"
+	"math/big"
 	"strings"
 
-	"github.com/vpngen/keydesk/kdlib"
-	"github.com/vpngen/wordsgens/namesgenerator"
-	"github.com/vpngen/wordsgens/seedgenerator"
 	"golang.org/x/crypto/ssh"
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-const (
-	fakeSeedPrefix    = "етитьколотить"
-	fakeKeydeskPrefix = "fc00::beaf:0/112"
-	fakeEndpointNet   = "182.31.10.0/24"
-	fakeCGNAT         = "100.64.0.0/10"
-	fakeULA           = "fd00::/8"
-	testPrefix        = "DoNotUse "
-)
+type openSSHDecryptFunc func(CipherName, KdfName, KdfOpts string, PrivKeyBlock []byte) ([]byte, error)
 
-func callMinistry(conf *ssh.ClientConfig, addr netip.AddrPort) (*grantPkg, error) {
-	var pkg = &grantPkg{}
-
-	cmd := "-ch"
-
-	fmt.Fprintf(os.Stderr, "%s#%s -> %s\n", conf.User, addr, cmd)
-
-	client, err := ssh.Dial("tcp", addr.String(), conf)
-	if err != nil {
-		return nil, fmt.Errorf("ssh dial: %w", err)
-	}
-	defer client.Close()
-
-	session, err := client.NewSession()
-	if err != nil {
-		return nil, fmt.Errorf("ssh session: %w", err)
-	}
-	defer session.Close()
-
-	var b, e bytes.Buffer
-
-	session.Stdout = &b
-	session.Stderr = &e
-
-	if err := session.Run(cmd); err != nil {
-		fmt.Fprintf(os.Stderr, "session errors:\n%s\n", e.String())
-
-		return nil, fmt.Errorf("ssh run: %w", err)
-	}
-
-	r := bufio.NewReader(httputil.NewChunkedReader(&b))
-
-	fullname, err := r.ReadString('\n')
-	if err != nil {
-		return nil, fmt.Errorf("fullname read: %w", err)
-	}
-
-	pkg.fullname = strings.Trim(fullname, "\r\n\t ")
-
-	person, err := r.ReadString('\n')
-	if err != nil {
-		return nil, fmt.Errorf("person read: %w", err)
-	}
-
-	pkg.person = strings.Trim(person, "\r\n\t ")
-
-	desc64, err := r.ReadString('\n')
-	if err != nil {
-		return nil, fmt.Errorf("desc64 read: %w", err)
-	}
-
-	desc, err := base64.StdEncoding.DecodeString(desc64)
-	if err != nil {
-		return nil, fmt.Errorf("desc64 decoding: %w", err)
-	}
-
-	pkg.desc = string(desc)
-
-	url64, err := r.ReadString('\n')
-	if err != nil {
-		return nil, fmt.Errorf("url64 read: %w", err)
-	}
-
-	wiki, err := base64.StdEncoding.DecodeString(url64)
-	if err != nil {
-		return nil, fmt.Errorf("url64 decoding: %w", err)
-	}
-
-	pkg.wiki = string(wiki)
-
-	mnemo, err := r.ReadString('\n')
-	if err != nil {
-		return nil, fmt.Errorf("mnemo read: %w", err)
-	}
-
-	pkg.mnemo = strings.Trim(mnemo, "\r\n\t ")
-
-	keydesk, err := r.ReadString('\n')
-	if err != nil {
-		return nil, fmt.Errorf("keydesk read: %w", err)
-	}
-
-	pkg.keydesk = strings.Trim(keydesk, "\r\n\t ")
-
-	filename, err := r.ReadString('\n')
-	if err != nil {
-		return nil, fmt.Errorf("filename read: %w", err)
-	}
-
-	pkg.filename = strings.Trim(filename, "\r\n\t ")
-
-	buf, err := io.ReadAll(r)
-	if err != nil {
-		return nil, fmt.Errorf("chunk read: %w", err)
-	}
-
-	pkg.wgconf = string(buf)
-
-	return pkg, nil
+func encryptedBlock(block *pem.Block) bool {
+	return strings.Contains(block.Headers["Proc-Type"], "ENCRYPTED")
 }
 
-func genGrants() (*grantPkg, error) {
-	var pkg = &grantPkg{}
-
-	fullname, person, err := namesgenerator.PhysicsAwardeeShort()
-	if err != nil {
-		return nil, fmt.Errorf("physics gen: %w", err)
+func parseOpenSSHPrivateKey(pemBytes []byte, decrypt openSSHDecryptFunc) (string, error) {
+	block, _ := pem.Decode(pemBytes)
+	if block == nil {
+		return "", errors.New("ssh: no key found")
 	}
 
-	pkg.fullname = testPrefix + fullname
-	pkg.person = person.Name
-	pkg.desc = person.Desc
-	pkg.wiki = person.URL
-
-	pkg.mnemo, _, _, err = seedgenerator.Seed(seedgenerator.ENT64, fakeSeedPrefix)
-	if err != nil {
-		return nil, fmt.Errorf("gen seed6: %w", err)
+	if encryptedBlock(block) {
+		return "", &ssh.PassphraseMissingError{}
 	}
 
-	pkg.keydesk = kdlib.RandomAddrIPv6(netip.MustParsePrefix(fakeKeydeskPrefix)).String()
-
-	numbered := fmt.Sprintf("%03d %s", rand.Int31n(256), fullname)
-	pkg.filename = kdlib.SanitizeFilename(numbered)
-
-	wgkey, err := wgtypes.GenerateKey()
-	if err != nil {
-		return nil, fmt.Errorf("gen wg psk: %w", err)
+	if block.Type != "OPENSSH PRIVATE KEY" {
+		return "", fmt.Errorf("ssh: unsupported key type %q", block.Type)
 	}
 
-	wgpriv, err := wgtypes.GeneratePrivateKey()
-	if err != nil {
-		return nil, fmt.Errorf("gen wg psk: %w", err)
+	key := block.Bytes
+
+	const magic = "openssh-key-v1\x00"
+	if len(key) < len(magic) || string(key[:len(magic)]) != magic {
+		return "", errors.New("ssh: invalid openssh private key format")
+	}
+	remaining := key[len(magic):]
+
+	var w struct {
+		CipherName   string
+		KdfName      string
+		KdfOpts      string
+		NumKeys      uint32
+		PubKey       []byte
+		PrivKeyBlock []byte
 	}
 
-	wgpub := wgpriv.PublicKey()
+	if err := ssh.Unmarshal(remaining, &w); err != nil {
+		return "", err
+	}
+	if w.NumKeys != 1 {
+		// We only support single key files, and so does OpenSSH.
+		// https://github.com/openssh/openssh-portable/blob/4103a3ec7/sshkey.c#L4171
+		return "", errors.New("ssh: multi-key files are not supported")
+	}
 
-	tmpl := `[Interface]
-Address = %s
-PrivateKey = %s
-DNS = %s
+	privKeyBlock, err := decrypt(w.CipherName, w.KdfName, w.KdfOpts, w.PrivKeyBlock)
+	if err != nil {
+		if err, ok := err.(*ssh.PassphraseMissingError); ok {
+			pub, errPub := ssh.ParsePublicKey(w.PubKey)
+			if errPub != nil {
+				return "", fmt.Errorf("ssh: failed to parse embedded public key: %v", errPub)
+			}
+			err.PublicKey = pub
+		}
+		return "", err
+	}
 
-[Peer]
-Endpoint = %s:51820
-PublicKey = %s
-PresharedKey = %s
-AllowedIPs = 0.0.0.0/0,::/0
-`
+	pk1 := struct {
+		Check1  uint32
+		Check2  uint32
+		Keytype string
+		Rest    []byte `ssh:"rest"`
+	}{}
 
-	ipv4 := kdlib.RandomAddrIPv4(netip.MustParsePrefix(fakeCGNAT))
-	ipv6 := kdlib.RandomAddrIPv6(netip.MustParsePrefix(fakeULA))
-	ep := kdlib.RandomAddrIPv4(netip.MustParsePrefix(fakeEndpointNet))
+	if err := ssh.Unmarshal(privKeyBlock, &pk1); err != nil || pk1.Check1 != pk1.Check2 {
+		if w.CipherName != "none" {
+			return "", x509.IncorrectPasswordError
+		}
+		return "", errors.New("ssh: malformed OpenSSH key")
+	}
 
-	pkg.wgconf = fmt.Sprintf(
-		tmpl,
-		netip.PrefixFrom(ipv4, 32).String()+","+netip.PrefixFrom(ipv6, 128).String(),
-		base64.StdEncoding.WithPadding(base64.StdPadding).EncodeToString(wgpriv[:]),
-		ipv4.String()+","+ipv6.String(),
-		ep.String(),
-		base64.StdEncoding.WithPadding(base64.StdPadding).EncodeToString(wgpub[:]),
-		base64.StdEncoding.WithPadding(base64.StdPadding).EncodeToString(wgkey[:]),
-	)
+	switch pk1.Keytype {
+	case ssh.KeyAlgoRSA:
+		// https://github.com/openssh/openssh-portable/blob/master/sshkey.c#L2760-L2773
+		key := struct {
+			N       *big.Int
+			E       *big.Int
+			D       *big.Int
+			Iqmp    *big.Int
+			P       *big.Int
+			Q       *big.Int
+			Comment string
+			Pad     []byte `ssh:"rest"`
+		}{}
 
-	return pkg, nil
+		if err := ssh.Unmarshal(pk1.Rest, &key); err != nil {
+			return "", err
+		}
+
+		if err := checkOpenSSHKeyPadding(key.Pad); err != nil {
+			return "", err
+		}
+
+		return key.Comment, nil
+	case ssh.KeyAlgoED25519:
+		key := struct {
+			Pub     []byte
+			Priv    []byte
+			Comment string
+			Pad     []byte `ssh:"rest"`
+		}{}
+
+		if err := ssh.Unmarshal(pk1.Rest, &key); err != nil {
+			return "", err
+		}
+
+		if len(key.Priv) != ed25519.PrivateKeySize {
+			return "", errors.New("ssh: private key unexpected length")
+		}
+
+		if err := checkOpenSSHKeyPadding(key.Pad); err != nil {
+			return "", err
+		}
+
+		return key.Comment, nil
+	case ssh.KeyAlgoECDSA256, ssh.KeyAlgoECDSA384, ssh.KeyAlgoECDSA521:
+		key := struct {
+			Curve   string
+			Pub     []byte
+			D       *big.Int
+			Comment string
+			Pad     []byte `ssh:"rest"`
+		}{}
+
+		if err := ssh.Unmarshal(pk1.Rest, &key); err != nil {
+			return "", err
+		}
+
+		if err := checkOpenSSHKeyPadding(key.Pad); err != nil {
+			return "", err
+		}
+
+		switch key.Curve {
+		case "nistp256":
+		case "nistp384":
+		case "nistp521":
+		default:
+			return "", errors.New("ssh: unhandled elliptic curve: " + key.Curve)
+		}
+
+		return key.Comment, nil
+	default:
+		return "", errors.New("ssh: unhandled key type")
+	}
+}
+
+func unencryptedOpenSSHKey(cipherName, kdfName, kdfOpts string, privKeyBlock []byte) ([]byte, error) {
+	if kdfName != "none" || cipherName != "none" {
+		return nil, &ssh.PassphraseMissingError{}
+	}
+	if kdfOpts != "" {
+		return nil, errors.New("ssh: invalid openssh private key")
+	}
+	return privKeyBlock, nil
+}
+
+func checkOpenSSHKeyPadding(pad []byte) error {
+	for i, b := range pad {
+		if int(b) != i+1 {
+			return errors.New("ssh: padding not as expected")
+		}
+	}
+	return nil
 }
