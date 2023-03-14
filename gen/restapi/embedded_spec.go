@@ -45,6 +45,9 @@ func init() {
           "403": {
             "description": "You do not have necessary permissions for the resource"
           },
+          "429": {
+            "description": "Rate limit reached for requests"
+          },
           "default": {
             "description": "error",
             "schema": {
@@ -145,6 +148,9 @@ func init() {
           },
           "403": {
             "description": "You do not have necessary permissions for the resource"
+          },
+          "429": {
+            "description": "Rate limit reached for requests"
           },
           "default": {
             "description": "error",

@@ -1,29 +1,45 @@
 package ptrapi
 
 import (
+	"encoding/binary"
 	"fmt"
 	"math/rand"
-	"os"
 	"time"
 
 	"github.com/dgraph-io/badger/v4"
 )
 
-const fourDecimals = (1 << 15) - 1
-
 const (
-	reqCounterPrefix = "reqc"
-	reqLimitDuration = time.Hour
-	reqLimitNumber   = 60
+	requestCounterPrefix = "req:"
+	requestLimitDuration = time.Hour
+	requestLimitNumber   = 60
 )
 
-var reqCounterValue = []byte{42}
+var requestCounterValue = []byte{42}
 
-func CheckReqLimit(dbase *badger.DB, token [32]byte) (bool, error) {
+func CheckRequestLimit(db *badger.DB, token [32]byte) (bool, error) {
+	prefix := append([]byte(requestCounterPrefix), token[:]...)
+
+	count, err := countRequests(db, prefix)
+	if err != nil {
+		return false, fmt.Errorf("count: %w", err)
+	}
+
+	if count > requestLimitNumber {
+		return false, nil
+	}
+
+	if err := incrementRequestCounter(db, prefix); err != nil {
+		return false, fmt.Errorf("inc: %w", err)
+	}
+
+	return true, nil
+}
+
+func countRequests(db *badger.DB, prefix []byte) (int, error) {
 	count := 0
-	prefix := append([]byte(reqCounterPrefix), token[:]...)
 
-	if err := dbase.View(func(txn *badger.Txn) error {
+	if err := db.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
 		opts.PrefetchValues = false
 
@@ -32,35 +48,22 @@ func CheckReqLimit(dbase *badger.DB, token [32]byte) (bool, error) {
 		defer it.Close()
 
 		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
-			item := it.Item()
-			k := item.Key()
-			fmt.Fprintf(os.Stderr, "found key=%x\n", k)
 			count++
 		}
 
 		return nil
 	}); err != nil {
-		return false, fmt.Errorf("count: %w", err)
+		return 0, fmt.Errorf("prefix seek: %w", err)
 	}
 
-	fmt.Fprintf(os.Stderr, "count=%d\n", count)
-
-	if count > reqLimitNumber {
-		return false, nil
-	}
-
-	if err := incReqCounter(dbase, prefix); err != nil {
-		return false, fmt.Errorf("inc: %w", err)
-	}
-
-	return true, nil
+	return count, nil
 }
 
-func incReqCounter(dbase *badger.DB, prefix []byte) error {
-	key := prefixKey(prefix)
+func incrementRequestCounter(db *badger.DB, prefix []byte) error {
+	key := getRequestCounterKey(prefix)
 
-	if err := dbase.Update(func(txn *badger.Txn) error {
-		e := badger.NewEntry(key, reqCounterValue).WithTTL(reqLimitDuration)
+	if err := db.Update(func(txn *badger.Txn) error {
+		e := badger.NewEntry(key, requestCounterValue).WithTTL(requestLimitDuration)
 		if err := txn.SetEntry(e); err != nil {
 			return fmt.Errorf("set: %w", err)
 		}
@@ -73,13 +76,13 @@ func incReqCounter(dbase *badger.DB, prefix []byte) error {
 	return nil
 }
 
-func prefixKey(prefix []byte) []byte {
-	var suffix = []byte{}
+func getRequestCounterKey(prefix []byte) []byte {
+	suffix := make([]byte, len(prefix), len(prefix)+15)
+	copy(suffix, prefix)
 
-	ts := time.Now().UTC()
-	h, m, s, n, j := ts.Hour(), ts.Minute(), ts.Second(), ts.Nanosecond(), rand.Int()
+	timestamp := time.Now().UTC().Format("150405.0000")
+	suffix = append(suffix, timestamp...)
+	suffix = binary.BigEndian.AppendUint32(suffix, uint32(rand.Int31()))
 
-	fmt.Appendf(suffix, "%02d%02m%02d%04d%04d", h, m, s, n&fourDecimals, j&fourDecimals)
-
-	return append(prefix, suffix...)
+	return suffix
 }

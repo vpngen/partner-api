@@ -12,6 +12,7 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
+	"github.com/dgraph-io/badger/v4"
 	oaerrors "github.com/go-openapi/errors"
 )
 
@@ -28,10 +29,13 @@ type AuthEntry struct {
 
 type AuthMap map[string]AuthEntry
 
-var ErrTokenInvalid = oaerrors.New(401, "invalid token")
+var (
+	ErrTokenInvalid    = oaerrors.New(401, "invalid token")
+	ErrTooManyRequests = oaerrors.New(429, "too many requests")
+)
 
 // ValidateBearer - validate our key.
-func ValidateBearer(m AuthMap) func(string) (interface{}, error) {
+func ValidateBearer(db *badger.DB, m AuthMap) func(string) (interface{}, error) {
 	return func(bearerHeader string) (interface{}, error) {
 		_, bearerToken, ok := strings.Cut(bearerHeader, " ")
 		if !ok {
@@ -41,7 +45,14 @@ func ValidateBearer(m AuthMap) func(string) (interface{}, error) {
 		tokenSha256 := sha256.Sum256([]byte(bearerToken))
 		tokenDgst := base64.StdEncoding.WithPadding(base64.StdPadding).EncodeToString(tokenSha256[:])
 
-		fmt.Fprintf(os.Stderr, "TOKEN: %s\n", bearerToken)
+		ok, err := CheckRequestLimit(db, tokenSha256)
+		if err != nil {
+			return nil, ErrTokenInvalid
+		}
+
+		if !ok {
+			return nil, ErrTooManyRequests
+		}
 
 		if a, ok := m[tokenDgst]; ok {
 			return a, nil

@@ -83,6 +83,31 @@ func (o *PostAdminForbidden) WriteResponse(rw http.ResponseWriter, producer runt
 	rw.WriteHeader(403)
 }
 
+// PostAdminTooManyRequestsCode is the HTTP code returned for type PostAdminTooManyRequests
+const PostAdminTooManyRequestsCode int = 429
+
+/*
+PostAdminTooManyRequests Rate limit reached for requests
+
+swagger:response postAdminTooManyRequests
+*/
+type PostAdminTooManyRequests struct {
+}
+
+// NewPostAdminTooManyRequests creates PostAdminTooManyRequests with default headers values
+func NewPostAdminTooManyRequests() *PostAdminTooManyRequests {
+
+	return &PostAdminTooManyRequests{}
+}
+
+// WriteResponse to the client
+func (o *PostAdminTooManyRequests) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+
+	rw.WriteHeader(429)
+}
+
 /*
 PostAdminDefault error
 
