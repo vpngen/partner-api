@@ -2,12 +2,15 @@
 
 ## Terms
 
-__Brigadier__- is a VPN admin, who can create VPN users and manage their access to the VPN.
-__Brigade__ - is a brigadier's user group.
-__Brigadier__ is VPN user itself, but with access to keydesk.
-__Keydesk__ - is a Web UI for brigadier to manage brigade users.
+- __Brigadier__- is a VPN admin, who can create VPN users and manage their access to the VPN.
+- __Brigade__ - is a brigadier's user group.
+- __Brigadier__ is VPN user itself, but with access to keydesk.
+- __Keydesk__ - is a Web UI for brigadier to manage brigade users.
+- __Embassy__ - is a application, to communicate with the potential brigadierin the web, messengers, etc.
 
 ## Overview
+
+API implements interface to embassies to communicate with the "ministry" server. The API implements the following futures:
 
 * Create brigadier, brigadier VPN credentials and keydesk credentials.
 * Recreate brigadier config: Not implemented yet
