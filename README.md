@@ -98,6 +98,8 @@ __NOTE:__ There is no token in the list just mnemonics of the key pairs. The som
 
 ## Agreements  
 
+* If API server can't open x509 certificate, it won't handle HTTPS requests.
+* If API server handle HTTPS request, it will redirect all HTTP requests to HTTPS.
 * The API server listens on the port 8443 with self-signed certificate. 
 * The API monitoring server listens on the port 8080 withouth TLS. The server is not exposed to the internet. It is only available from the service LAN.
 * The SSH keys default type is ED25519.

@@ -47,12 +47,10 @@ const (
 
 const (
 	dataKeyRotationDuration = 10 * 24 * time.Hour // 10 days
-	defaultIndexCacheSize   = 100 << 20           // 100 Mb
+	defaultIndexCacheSize   = 10 << 20            // 10 Mb
 )
 
-var (
-	ErrEmptyAuthUser = goerrors.New("empty user")
-)
+var ErrEmptyAuthUser = goerrors.New("empty user")
 
 func main() {
 	dbkeyString := os.Getenv("BADGER_ENC_KEY")
@@ -109,15 +107,11 @@ func main() {
 
 	handler := initSwaggerAPI(db, pcors, keysDir, authMap, authUser, addr)
 
-	server := &http.Server{
-		Handler:     handler,
-		IdleTimeout: 60 * time.Minute,
-	}
+	var server, serverTLS *http.Server
 
-	var serverTLS *http.Server
-
-	if len(listeners) == 2 {
-		// openssl req -x509 -nodes -days 10000 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -subj '/CN=vpn.works/O=VPNGen/C=LT/ST=Vilniaus Apskritis/L=Vilnius' -keyout vpn.works.key -out vpn.works.crt
+	switch len(listeners) {
+	case 2:
+		// openssl req -x509 -nodes -days 10000 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -subj '/CN=api.vpngen.org/O=VPNGen/C=LT/ST=Vilniaus Apskritis/L=Vilnius' -keyout private.key -out fullchain.crt
 		switch cert, err := tls.LoadX509KeyPair(
 			filepath.Join(certDir, TLSCertFilename),
 			filepath.Join(certDir, TLSKeyFilename),
@@ -128,8 +122,20 @@ func main() {
 				Handler:     handler,
 				IdleTimeout: 60 * time.Minute,
 			}
+
+			server = &http.Server{
+				Handler:     http.HandlerFunc(httpsRedirectHandler),
+				IdleTimeout: 60 * time.Minute,
+			}
 		default:
 			fmt.Fprintf(os.Stderr, "Skip TLS: can't open cert/key pair: %s\n", err)
+		}
+	}
+
+	if server == nil {
+		server = &http.Server{
+			Handler:     handler,
+			IdleTimeout: 60 * time.Minute,
 		}
 	}
 
@@ -217,7 +223,7 @@ func parseArgs() ([]net.Listener, netip.AddrPort, bool, string, string, string, 
 	dbDir := flag.String("d", DefaultSessionDbDir, "Dir for session db.")
 	authUser := flag.String("u", DefaultManagementUser, "")
 
-	listenAddr := flag.String("l", "", "Listen addr:port (http and https separate with commas)")
+	listenAddr := flag.String("l", "", "Listen addr:port (http[,https] separate with commas)")
 	pcors := flag.Bool("cors", false, "Turn on permessive CORS (for test)")
 
 	addr := flag.String("a", "", "API management address:port")
@@ -338,4 +344,12 @@ func badgerGC(wg *sync.WaitGroup, db *badger.DB, stop <-chan struct{}) {
 			return
 		}
 	}
+}
+
+func httpsRedirectHandler(w http.ResponseWriter, r *http.Request) {
+	target := "https://" + r.Host + r.URL.Path
+	if len(r.URL.RawQuery) > 0 {
+		target += "?" + r.URL.RawQuery
+	}
+	http.Redirect(w, r, target, http.StatusMovedPermanently)
 }
