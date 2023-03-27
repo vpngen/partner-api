@@ -89,7 +89,7 @@ Every token corresponds to a SSH key pair. The name of the key pair constructed 
  
 ## Monitoring
 
-### Request limits control
+### Requests limit control
 
 Dedicated HTTP-server for this kind of monitoring with separate port and address. The server is not exposed to the internet. It is only available from the service LAN. Server API: 
 
