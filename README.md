@@ -109,6 +109,6 @@ __NOTE:__ There is no token in the list just mnemonics of the key pairs. The som
 
 * The API server is written in Go with go-swagger (swagger 2.0). Swagger file is located in `swagger/` directory.
 * The limitation implemented with badger database.
-        * The database is encrypted with AES.
-        * Keys are stored in the database with TTL equal 1 hour.
-        * Request count calculated with prefix scan key-only iteration.
+  * The database is encrypted with AES.
+  * Keys are stored in the database with TTL equal 1 hour.
+  * Request count calculated with prefix scan key-only iteration.
