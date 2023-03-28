@@ -12,6 +12,7 @@ require (
 	github.com/go-openapi/swag v0.22.3
 	github.com/go-openapi/validate v0.22.1
 	github.com/golang-jwt/jwt v3.2.2+incompatible
+	github.com/gorilla/mux v1.8.0
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/rs/cors v1.8.3
 	github.com/vpngen/keydesk v0.0.0-20230308234006-0e602781bafc

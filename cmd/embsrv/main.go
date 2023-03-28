@@ -29,6 +29,8 @@ import (
 	"github.com/vpngen/partner-api/gen/restapi"
 	"github.com/vpngen/partner-api/gen/restapi/operations"
 	"golang.org/x/crypto/ssh"
+
+	"github.com/gorilla/mux"
 )
 
 //go:generate swagger generate server -t ../../gen -f ../../swagger/swagger.yml --exclude-main -A admin
@@ -73,7 +75,7 @@ func main() {
 		log.Fatalf("JWT_SIGN_KEY is empty or too short: %s\n", jwtSeceret)
 	}
 
-	listeners, addr, pcors, authUser, dbDir, tokens, sshKey, certDir, err := parseArgs()
+	listeners, addr, pcors, zabbixAddr, authUser, dbDir, tokens, sshKey, certDir, err := parseArgs()
 	if err != nil {
 		log.Fatalf("Can't init: %s\n", err)
 	}
@@ -114,7 +116,7 @@ func main() {
 
 	handler := initSwaggerAPI(db, pcors, jwtSeceret, authMap, sshConfig, addr)
 
-	var server, serverTLS *http.Server
+	var server, serverTLS, serverZabbix *http.Server
 
 	switch len(listeners) {
 	case 2:
@@ -146,6 +148,19 @@ func main() {
 		}
 	}
 
+	if zabbixAddr.IsValid() {
+		router := mux.NewRouter()
+
+		router.HandleFunc("/metrics/embassy_integration_token", func(w http.ResponseWriter, r *http.Request) {
+			embapi.ZabbixCounterHandler(w, r, authMap)
+		})
+
+		serverZabbix = &http.Server{
+			Handler:     router,
+			IdleTimeout: 60 * time.Minute,
+		}
+	}
+
 	stop := make(chan struct{})
 	wg := &sync.WaitGroup{}
 
@@ -155,6 +170,10 @@ func main() {
 	fmt.Fprintf(os.Stderr, "Listen HTTP: %s\n", listeners[0].Addr().String())
 	if serverTLS != nil {
 		fmt.Fprintf(os.Stderr, "Listen HTTPS: %s\n", listeners[1].Addr().String())
+	}
+
+	if serverZabbix != nil {
+		fmt.Fprintf(os.Stderr, "Listen Zabbix: %s\n", zabbixAddr.String())
 	}
 
 	// Start accepting connections.
@@ -169,6 +188,19 @@ func main() {
 		go func() {
 			if err := serverTLS.ServeTLS(listeners[1], "", ""); err != nil && !goerrors.Is(err, http.ErrServerClosed) {
 				log.Fatalf("Can't serve TLS: %s\n", err)
+			}
+		}()
+	}
+
+	if serverZabbix != nil {
+		go func() {
+			zlistener, err := net.Listen("tcp", zabbixAddr.String())
+			if err != nil {
+				log.Fatalf("Can't listen Zabbix: %s\n", err)
+			}
+
+			if err := serverZabbix.Serve(zlistener); err != nil && !goerrors.Is(err, http.ErrServerClosed) {
+				log.Fatalf("Can't serve Zabbix: %s\n", err)
 			}
 		}()
 	}
@@ -209,6 +241,12 @@ func main() {
 			go closeFunc(serverTLS)
 		}
 
+		if serverZabbix != nil {
+			fmt.Fprintln(os.Stderr, "Server Zabbix is shutting down")
+			wg.Add(1)
+			go closeFunc(serverZabbix)
+		}
+
 		wg.Wait()
 
 		close(done)
@@ -218,10 +256,10 @@ func main() {
 	<-done
 }
 
-func parseArgs() ([]net.Listener, netip.AddrPort, bool, string, string, string, string, string, error) {
+func parseArgs() ([]net.Listener, netip.AddrPort, bool, netip.AddrPort, string, string, string, string, string, error) {
 	var (
 		dbdir, sshkey, tokens, certdir string
-		addrPort                       netip.AddrPort
+		addrPort, zabbix               netip.AddrPort
 		err                            error
 	)
 
@@ -232,6 +270,7 @@ func parseArgs() ([]net.Listener, netip.AddrPort, bool, string, string, string, 
 	authUser := flag.String("u", DefaultManagementUser, "")
 
 	listenAddr := flag.String("l", "", "Listen addr:port (http[,https] separate with commas)")
+	zabbixAddr := flag.String("z", "", "Listen addr:port for zabbix metrics")
 	pcors := flag.Bool("cors", false, "Turn on permessive CORS (for test)")
 
 	addr := flag.String("a", "", "API management address:port")
@@ -240,32 +279,32 @@ func parseArgs() ([]net.Listener, netip.AddrPort, bool, string, string, string, 
 
 	dbdir, err = filepath.Abs(*dbDir)
 	if err != nil {
-		return nil, addrPort, false, "", "", "", "", "", fmt.Errorf("dbdir: %w", err)
+		return nil, addrPort, false, zabbix, "", "", "", "", "", fmt.Errorf("dbdir: %w", err)
 	}
 
 	sshkey, err = filepath.Abs(*sshKey)
 	if err != nil {
-		return nil, addrPort, false, "", "", "", "", "", fmt.Errorf("sshkey: %w", err)
+		return nil, addrPort, false, zabbix, "", "", "", "", "", fmt.Errorf("sshkey: %w", err)
 	}
 
 	tokens, err = filepath.Abs(*tokensFile)
 	if err != nil {
-		return nil, addrPort, false, "", "", "", "", "", fmt.Errorf("tokens: %w", err)
+		return nil, addrPort, false, zabbix, "", "", "", "", "", fmt.Errorf("tokens: %w", err)
 	}
 
 	certdir, err = filepath.Abs(*certDir)
 	if err != nil {
-		return nil, addrPort, false, "", "", "", "", "", fmt.Errorf("certdir: %w", err)
+		return nil, addrPort, false, zabbix, "", "", "", "", "", fmt.Errorf("certdir: %w", err)
 	}
 
 	if *authUser == "" {
-		return nil, addrPort, false, "", "", "", "", "", fmt.Errorf("user: %w", ErrEmptyAuthUser)
+		return nil, addrPort, false, zabbix, "", "", "", "", "", fmt.Errorf("user: %w", ErrEmptyAuthUser)
 	}
 
 	if *addr != "-" {
 		addrPort, err = netip.ParseAddrPort(*addr)
 		if err != nil {
-			return nil, addrPort, false, "", "", "", "", "", fmt.Errorf("ministry addr: %w", err)
+			return nil, addrPort, false, zabbix, "", "", "", "", "", fmt.Errorf("ministry addr: %w", err)
 		}
 	}
 
@@ -274,18 +313,25 @@ func parseArgs() ([]net.Listener, netip.AddrPort, bool, string, string, string, 
 	for _, laddr := range strings.Split(*listenAddr, ",") {
 		l, err := net.Listen("tcp", laddr)
 		if err != nil {
-			return nil, addrPort, false, "", "", "", "", "", fmt.Errorf("cannot listen: %w", err)
+			return nil, addrPort, false, zabbix, "", "", "", "", "", fmt.Errorf("cannot listen: %w", err)
 		}
 
 		listeners = append(listeners, l)
 	}
 
 	if len(listeners) != 1 && len(listeners) != 2 {
-		return nil, addrPort, false, "", "", "", "", "", fmt.Errorf("unexpected number of litening (%d != 1|2)",
+		return nil, addrPort, false, zabbix, "", "", "", "", "", fmt.Errorf("unexpected number of litening (%d != 1|2)",
 			len(listeners))
 	}
 
-	return listeners, addrPort, *pcors, *authUser, dbdir, tokens, sshkey, certdir, nil
+	if *zabbixAddr != "" {
+		zabbix, err = netip.ParseAddrPort(*zabbixAddr)
+		if err != nil {
+			return nil, addrPort, false, zabbix, "", "", "", "", "", fmt.Errorf("zabbix addr: %w", err)
+		}
+	}
+
+	return listeners, addrPort, *pcors, zabbix, *authUser, dbdir, tokens, sshkey, certdir, nil
 }
 
 func initSwaggerAPI(

@@ -44,8 +44,6 @@ func ValidateBearer(db *badger.DB, secret string, m AuthMap) func(string) (inter
 			return nil, ErrTokenInvalid
 		}
 
-		fmt.Fprintf(os.Stderr, "a: %+v\n", a)
-
 		ok, count, err := CheckRequestLimit(db, tokenSha256)
 		if err != nil {
 			return nil, ErrTokenInvalid

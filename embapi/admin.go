@@ -27,7 +27,7 @@ var DebugAdminUserName = "Вован"
 
 // AddAdmin - create user.
 func AddAdmin(params operations.PostAdminParams, principal interface{}, sshConfig *ssh.ClientConfig, addr netip.AddrPort) middleware.Responder {
-	auth, ok := principal.(AuthEntry)
+	auth, ok := principal.(*AuthEntry)
 	if !ok {
 		fmt.Fprintf(os.Stderr, "Unknown principal: %#v\n", principal)
 
