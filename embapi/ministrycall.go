@@ -1,4 +1,4 @@
-package ptrapi
+package embapi
 
 import (
 	"bufio"

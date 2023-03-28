@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/dgraph-io/badger/v4"
-	"github.com/vpngen/partner-api/ptrapi"
+	"github.com/vpngen/partner-api/embapi"
 )
 
 const (
@@ -66,12 +66,12 @@ func main() {
 
 		switch c % 2 {
 		case 0:
-			bool, err = ptrapi.CheckRequestLimit(db, token2)
+			bool, err = embapi.CheckRequestLimit(db, token2)
 			if err != nil {
 				log.Fatalf("loop: %s\n", err)
 			}
 		default:
-			bool, err = ptrapi.CheckRequestLimit(db, token1)
+			bool, err = embapi.CheckRequestLimit(db, token1)
 			if err != nil {
 				log.Fatalf("loop: %s\n", err)
 			}

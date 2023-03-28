@@ -25,11 +25,10 @@ import (
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/rs/cors"
+	"github.com/vpngen/partner-api/embapi"
 	"github.com/vpngen/partner-api/gen/restapi"
 	"github.com/vpngen/partner-api/gen/restapi/operations"
 	"golang.org/x/crypto/ssh"
-
-	"github.com/vpngen/partner-api/ptrapi"
 )
 
 //go:generate swagger generate server -t ../../gen -f ../../swagger/swagger.yml --exclude-main -A admin
@@ -41,9 +40,9 @@ const (
 
 const (
 	DefaultCertDir        = "/etc/vgcerts"
-	DefaultSSHKey         = "/etc/partners-api/id_ed25519"
-	DefaultTokensFile     = "/etc/partners-api/tokens.lst"
-	DefaultSessionDbDir   = "/var/lib/partners-api/db"
+	DefaultSSHKey         = "/etc/embassy-api/id_ed25519"
+	DefaultTokensFile     = "/etc/embassy-api/tokens.lst"
+	DefaultSessionDbDir   = "/var/lib/embassy-api/db"
 	DefaultManagementUser = "_alice_"
 )
 
@@ -91,12 +90,12 @@ func main() {
 		fmt.Fprintln(os.Stderr, "Ministry address:port is for DEBUG")
 	}
 
-	sshConfig, err := ptrapi.CreateSSHConfig(sshKey, authUser)
+	sshConfig, err := embapi.CreateSSHConfig(sshKey, authUser)
 	if err != nil {
 		log.Fatalf("Can't find key: %s\n", err)
 	}
 
-	authMap, err := ptrapi.ReadTokensFile(tokens)
+	authMap, err := embapi.ReadTokensFile(tokens)
 	if err != nil {
 		log.Fatalf("Can't read tokens file: %s\n", err)
 	}
@@ -293,7 +292,7 @@ func initSwaggerAPI(
 	db *badger.DB,
 	pcors bool,
 	jwtSeceret string,
-	authMap ptrapi.AuthMap,
+	authMap embapi.AuthMap,
 	sshConfig *ssh.ClientConfig,
 	addr netip.AddrPort,
 ) http.Handler {
@@ -314,9 +313,9 @@ func initSwaggerAPI(
 
 	api.JSONProducer = runtime.JSONProducer()
 
-	api.BearerAuth = ptrapi.ValidateBearer(db, jwtSeceret, authMap)
+	api.BearerAuth = embapi.ValidateBearer(db, jwtSeceret, authMap)
 	api.PostAdminHandler = operations.PostAdminHandlerFunc(func(params operations.PostAdminParams, principal interface{}) middleware.Responder {
-		return ptrapi.AddAdmin(params, principal, sshConfig, addr)
+		return embapi.AddAdmin(params, principal, sshConfig, addr)
 	})
 
 	switch pcors {
