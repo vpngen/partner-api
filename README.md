@@ -10,7 +10,7 @@
 
 ## Overview
 
-API implements interface to embassies to communicate with the "ministry" server. The API implements the following futures:
+API implements interface to embassies to communicate with the "ministry" server. The API implements the following functions:
 
 * Create brigadier, brigadier VPN credentials and keydesk credentials.
 * Recreate brigadier config: Not implemented yet
@@ -18,7 +18,7 @@ API implements interface to embassies to communicate with the "ministry" server.
 
 ## Public API
 
-Uses swagger 2.0 for documentation and generation of server code
+Uses swagger 2.0 for documentation and generation of the server stubs. The swagger file is located in `swagger/` directory.
 
 ### Authentication
 
