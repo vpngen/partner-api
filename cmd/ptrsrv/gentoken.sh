@@ -52,6 +52,9 @@ signature=$(echo -n "${header_encoded}.${payload_encoded}" | openssl dgst -binar
 # Concatenate the header, payload, and signature to create the JWT
 jwt="${header_encoded}.${payload_encoded}.${signature}"
 
+dgst=$(echo -n "${jwt}" | openssl dgst -sha256 -binary | base64 | tr '+/' '-_' | tr -d '=')
+echo "JWT digest: ${dgst}"
+
 # Output the JWT token
 echo "Generated JWT: $jwt"
 

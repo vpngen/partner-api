@@ -35,7 +35,7 @@ func ValidateBearer(db *badger.DB, secret string, m AuthMap) func(string) (inter
 		}
 
 		tokenSha256 := sha256.Sum256([]byte(bearerToken))
-		tokenDgst := base64.StdEncoding.WithPadding(base64.StdPadding).EncodeToString(tokenSha256[:])
+		tokenDgst := base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString(tokenSha256[:])
 
 		a, ok := m[tokenDgst]
 		if !ok {
@@ -99,7 +99,7 @@ func ReadTokensFile(filename string) (AuthMap, error) {
 		}
 
 		tokenSha256 := sha256.Sum256([]byte(token))
-		tokenDgst := base64.StdEncoding.WithPadding(base64.StdPadding).EncodeToString(tokenSha256[:])
+		tokenDgst := base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString(tokenSha256[:])
 
 		allowedIPs := []netip.Prefix{}
 		if ok {
