@@ -83,7 +83,7 @@ Each token is a JWT token that includes a 'name' claim, with the token name bein
 ### Generation
 
 * Generate a token using the gentoken.sh script. This script creates a random token name and a JWT token with an HMAC 256 signature. The token name, token, and its SHA-256 digest are displayed on stdout and the token is saved to the `tokens` file.
-* Add the token's SHA-256 hash and a full name derived from the generated token name to the ministry database. The hash serves to authenticate the embassy, while the full name identifies the embassy. The token name portion of the full name is used to identify the key.
+* Add the token's SHA-256 hash and the token name to the ministry database. The hash serves to authenticate the embassy. The token name is used to identify the key.
 
 ## Monitoring
 
