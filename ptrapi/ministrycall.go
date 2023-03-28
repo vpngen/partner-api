@@ -28,10 +28,10 @@ const (
 	testPrefix        = "DoNotUse "
 )
 
-func callMinistry(conf *ssh.ClientConfig, addr netip.AddrPort) (*grantPkg, error) {
-	var pkg = &grantPkg{}
+func callMinistry(dgst string, conf *ssh.ClientConfig, addr netip.AddrPort) (*grantPkg, error) {
+	pkg := &grantPkg{}
 
-	cmd := "-ch"
+	cmd := fmt.Sprintf("-ch %s", dgst)
 
 	fmt.Fprintf(os.Stderr, "%s#%s -> %s\n", conf.User, addr, cmd)
 
@@ -130,7 +130,7 @@ func callMinistry(conf *ssh.ClientConfig, addr netip.AddrPort) (*grantPkg, error
 }
 
 func genGrants() (*grantPkg, error) {
-	var pkg = &grantPkg{}
+	pkg := &grantPkg{}
 
 	fullname, person, err := namesgenerator.PhysicsAwardeeShort()
 	if err != nil {

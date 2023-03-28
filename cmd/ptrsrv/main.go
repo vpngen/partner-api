@@ -27,6 +27,7 @@ import (
 	"github.com/rs/cors"
 	"github.com/vpngen/partner-api/gen/restapi"
 	"github.com/vpngen/partner-api/gen/restapi/operations"
+	"golang.org/x/crypto/ssh"
 
 	"github.com/vpngen/partner-api/ptrapi"
 )
@@ -40,7 +41,8 @@ const (
 
 const (
 	DefaultCertDir        = "/etc/vgcerts"
-	DefaultSSHKeysDir     = "/var/lib/partners-api/keys"
+	DefaultSSHKey         = "/etc/partners-api/id_ed25519"
+	DefaultTokensFile     = "/etc/partners-api/tokens.lst"
 	DefaultSessionDbDir   = "/var/lib/partners-api/db"
 	DefaultManagementUser = "_alice_"
 )
@@ -67,13 +69,18 @@ func main() {
 		log.Fatalf("It is not a valid key: %s\n", dbkeyString)
 	}
 
-	listeners, addr, pcors, authUser, dbDir, keysDir, certDir, err := parseArgs()
+	jwtSeceret := os.Getenv("JWT_SIGN_KEY")
+	if jwtSeceret == "" && len(jwtSeceret) < 32 {
+		log.Fatalf("JWT_SIGN_KEY is empty or too short: %s\n", jwtSeceret)
+	}
+
+	listeners, addr, pcors, authUser, dbDir, tokens, sshKey, certDir, err := parseArgs()
 	if err != nil {
 		log.Fatalf("Can't init: %s\n", err)
 	}
 
 	fmt.Fprintf(os.Stderr, "Database Dir: %s\n", dbDir)
-	fmt.Fprintf(os.Stderr, "SSH Keys Dir: %s\n", keysDir)
+	fmt.Fprintf(os.Stderr, "SSH Private Key: %s\n", sshKey)
 	fmt.Fprintf(os.Stderr, "Cert Dir: %s\n", certDir)
 	fmt.Fprintf(os.Stderr, "Permessive CORS: %t\n", pcors)
 
@@ -84,13 +91,14 @@ func main() {
 		fmt.Fprintln(os.Stderr, "Ministry address:port is for DEBUG")
 	}
 
-	authMap, err := ptrapi.ReadKeysDir(keysDir, "vasya")
+	sshConfig, err := ptrapi.CreateSSHConfig(sshKey, authUser)
 	if err != nil {
-		log.Fatalf("Can't find keys: %s\n", err)
+		log.Fatalf("Can't find key: %s\n", err)
 	}
 
-	if len(authMap) == 0 {
-		log.Fatalln("Can't find keys")
+	authMap, err := ptrapi.ReadTokensFile(tokens)
+	if err != nil {
+		log.Fatalf("Can't read tokens file: %s\n", err)
 	}
 
 	dbopts := badger.DefaultOptions(dbDir).
@@ -105,7 +113,7 @@ func main() {
 
 	defer db.Close()
 
-	handler := initSwaggerAPI(db, pcors, keysDir, authMap, authUser, addr)
+	handler := initSwaggerAPI(db, pcors, jwtSeceret, authMap, sshConfig, addr)
 
 	var server, serverTLS *http.Server
 
@@ -211,14 +219,15 @@ func main() {
 	<-done
 }
 
-func parseArgs() ([]net.Listener, netip.AddrPort, bool, string, string, string, string, error) {
+func parseArgs() ([]net.Listener, netip.AddrPort, bool, string, string, string, string, string, error) {
 	var (
-		dbdir, keydir, certdir string
-		addrPort               netip.AddrPort
-		err                    error
+		dbdir, sshkey, tokens, certdir string
+		addrPort                       netip.AddrPort
+		err                            error
 	)
 
-	keyDir := flag.String("k", DefaultSSHKeysDir, "Dir for ssh keysfiles.")
+	sshKey := flag.String("k", DefaultSSHKey, "SSH private key.")
+	tokensFile := flag.String("t", DefaultTokensFile, "Valid tokens file.")
 	certDir := flag.String("e", DefaultCertDir, "Dir for TLS certificate and key.")
 	dbDir := flag.String("d", DefaultSessionDbDir, "Dir for session db.")
 	authUser := flag.String("u", DefaultManagementUser, "")
@@ -232,27 +241,32 @@ func parseArgs() ([]net.Listener, netip.AddrPort, bool, string, string, string, 
 
 	dbdir, err = filepath.Abs(*dbDir)
 	if err != nil {
-		return nil, addrPort, false, "", "", "", "", fmt.Errorf("dbdir: %w", err)
+		return nil, addrPort, false, "", "", "", "", "", fmt.Errorf("dbdir: %w", err)
 	}
 
-	keydir, err = filepath.Abs(*keyDir)
+	sshkey, err = filepath.Abs(*sshKey)
 	if err != nil {
-		return nil, addrPort, false, "", "", "", "", fmt.Errorf("keydir: %w", err)
+		return nil, addrPort, false, "", "", "", "", "", fmt.Errorf("sshkey: %w", err)
+	}
+
+	tokens, err = filepath.Abs(*tokensFile)
+	if err != nil {
+		return nil, addrPort, false, "", "", "", "", "", fmt.Errorf("tokens: %w", err)
 	}
 
 	certdir, err = filepath.Abs(*certDir)
 	if err != nil {
-		return nil, addrPort, false, "", "", "", "", fmt.Errorf("certdir: %w", err)
+		return nil, addrPort, false, "", "", "", "", "", fmt.Errorf("certdir: %w", err)
 	}
 
 	if *authUser == "" {
-		return nil, addrPort, false, "", "", "", "", fmt.Errorf("user: %w", ErrEmptyAuthUser)
+		return nil, addrPort, false, "", "", "", "", "", fmt.Errorf("user: %w", ErrEmptyAuthUser)
 	}
 
 	if *addr != "-" {
 		addrPort, err = netip.ParseAddrPort(*addr)
 		if err != nil {
-			return nil, addrPort, false, "", "", "", "", fmt.Errorf("ministry addr: %w", err)
+			return nil, addrPort, false, "", "", "", "", "", fmt.Errorf("ministry addr: %w", err)
 		}
 	}
 
@@ -261,26 +275,26 @@ func parseArgs() ([]net.Listener, netip.AddrPort, bool, string, string, string, 
 	for _, laddr := range strings.Split(*listenAddr, ",") {
 		l, err := net.Listen("tcp", laddr)
 		if err != nil {
-			return nil, addrPort, false, "", "", "", "", fmt.Errorf("cannot listen: %w", err)
+			return nil, addrPort, false, "", "", "", "", "", fmt.Errorf("cannot listen: %w", err)
 		}
 
 		listeners = append(listeners, l)
 	}
 
 	if len(listeners) != 1 && len(listeners) != 2 {
-		return nil, addrPort, false, "", "", "", "", fmt.Errorf("unexpected number of litening (%d != 1|2)",
+		return nil, addrPort, false, "", "", "", "", "", fmt.Errorf("unexpected number of litening (%d != 1|2)",
 			len(listeners))
 	}
 
-	return listeners, addrPort, *pcors, *authUser, dbdir, keydir, certdir, nil
+	return listeners, addrPort, *pcors, *authUser, dbdir, tokens, sshkey, certdir, nil
 }
 
 func initSwaggerAPI(
 	db *badger.DB,
 	pcors bool,
-	keysDir string,
+	jwtSeceret string,
 	authMap ptrapi.AuthMap,
-	authUser string,
+	sshConfig *ssh.ClientConfig,
 	addr netip.AddrPort,
 ) http.Handler {
 	// load embedded swagger file
@@ -300,9 +314,9 @@ func initSwaggerAPI(
 
 	api.JSONProducer = runtime.JSONProducer()
 
-	api.BearerAuth = ptrapi.ValidateBearer(db, authMap)
+	api.BearerAuth = ptrapi.ValidateBearer(db, jwtSeceret, authMap)
 	api.PostAdminHandler = operations.PostAdminHandlerFunc(func(params operations.PostAdminParams, principal interface{}) middleware.Responder {
-		return ptrapi.AddAdmin(params, principal, addr)
+		return ptrapi.AddAdmin(params, principal, sshConfig, addr)
 	})
 
 	switch pcors {

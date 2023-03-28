@@ -7,6 +7,7 @@ import (
 
 	"github.com/vpngen/partner-api/gen/models"
 	"github.com/vpngen/partner-api/gen/restapi/operations"
+	"golang.org/x/crypto/ssh"
 
 	"github.com/go-openapi/runtime/middleware"
 )
@@ -25,7 +26,7 @@ type grantPkg struct {
 var DebugAdminUserName = "Вован"
 
 // AddAdmin - create user.
-func AddAdmin(params operations.PostAdminParams, principal interface{}, addr netip.AddrPort) middleware.Responder {
+func AddAdmin(params operations.PostAdminParams, principal interface{}, sshConfig *ssh.ClientConfig, addr netip.AddrPort) middleware.Responder {
 	auth, ok := principal.(AuthEntry)
 	if !ok {
 		fmt.Fprintf(os.Stderr, "Unknown principal: %#v\n", principal)
@@ -33,7 +34,7 @@ func AddAdmin(params operations.PostAdminParams, principal interface{}, addr net
 		return operations.NewPostAdminForbidden()
 	}
 
-	fmt.Fprintf(os.Stderr, "Token: %s\n", auth.TokenDigest)
+	fmt.Fprintf(os.Stderr, "Token: %s\n", auth.Token)
 
 	if !addr.IsValid() {
 		fmt.Fprintln(os.Stderr, "DEBUG CALL: PostAdmin")
@@ -50,7 +51,7 @@ func AddAdmin(params operations.PostAdminParams, principal interface{}, addr net
 
 	fmt.Fprintf(os.Stderr, "Call: PostAdmin: %s\n", addr)
 
-	admin, err := callMinistry(auth.SSHConfig, addr)
+	admin, err := callMinistry(auth.Token, sshConfig, addr)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Call: PostAdmin: call ministry: %s\n", err)
 

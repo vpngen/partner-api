@@ -1,4 +1,5 @@
-keys/
 db/
-!keys/keep-me
+!db/keep-me
+token.lst
+id_*
 ptrsrv

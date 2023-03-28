@@ -70,23 +70,21 @@ Not implemented yet
 
 ## Server interaction
 
-After successful authentication, the server calls "ministry" server via SSH to create brigadier and get brigadier credentials. SSH credentials for the call correspond to the token.
+Upon successful authentication, the server connects to the "ministry" server using SSH to create a brigadier and obtain its credentials. SSH credentials are not covered in this document.
 
 __NOTE:__ This is a temporary solution. It just for the legacy telegram embassy bot API calls support. The server will be rewritten and will be the part of the "ministry" server. It will use the "ministry" database directly.
 
-## SSH credentials and tokens
+## Tokens
 
 ### Abstract
 
-Every token corresponds to a SSH key pair. The name of the key pair constructed from the classic name of the ssh key files and some random unique mnemonic string dot separated. For example, `id_ed25519.nameone` and `id_ed25519.nametwo` are two different key pairs. The comment field of the secret key is a magic string. Format of the magic string is `;sha256-hash;net-list`. SHA256 hash is a hash of token. Net-list is a list of networks in CIDR format, separated by commas. For example, `;DmffaxnxNqKy+Y3GruMh60HkdPJSuESYYmnVCp7c/2U=;0.0.0.0/0` is a magic string for the token `5q19sxL9JTg9xnAA4GyloNLjVZbsUgpPZdpCqKN5mIo=`. The server will allow SSH connections only from the networks in the net-list (not implemented yet). The "ministry" server uses public key sha256 hash to authenticate the request.
+Each token is a JWT token that includes a 'name' claim, with the token name being a random, human-readable string. JWT tokens use an HMAC 256 signature, but secret key management is not discussed in this document. Tokens are stored in a text file with one token per line. An optional list of allowed IP prefixes can be added to each line, separated by a comma. This list consists of comma-separated IP prefixes in CIDR notation or individual IP addresses, which are interpreted as /32 CIDR notation. The list is empty by default and is used to restrict token usage to specific IP prefixes. However, the prefix limitation feature is not yet implemented. The "ministry" server authenticates the embassy using the SHA-256 digest of the token.
 
 ### Generation
 
-* Create a key pair with `genkey.sh` script. The script generates a key pair, token and magic string.
-* Add the public key to the `authorized_keys` file on the "ministry" server.
-* Add the sha256 hash of the public key and the mnemonic to the database on the "ministry" server.
-* The mnemonic of the key pair must be same as in the "ministry" database.
- 
+* Generate a token using the gentoken.sh script. This script creates a random token name and a JWT token with an HMAC 256 signature. The token name, token, and its SHA-256 digest are displayed on stdout and the token is saved to the `tokens` file.
+* Add the token's SHA-256 hash and a full name derived from the generated token name to the ministry database. The hash serves to authenticate the embassy, while the full name identifies the embassy. The token name portion of the full name is used to identify the key.
+
 ## Monitoring
 
 ### Requests limit control
@@ -113,5 +111,6 @@ __NOTE:__ There is no token in the list just mnemonics of the key pairs. The som
 * The API server is written in Go with go-swagger (swagger 2.0). Swagger file is located in `swagger/` directory.
 * The limitation implemented with badger database.
   * The database is encrypted with AES.
+  * Keys is the token sha256 digest concatenated with the hour, minute and second of the request time.
   * Keys are stored in the database with TTL equal 1 hour.
   * Request count calculated with prefix scan key-only iteration.

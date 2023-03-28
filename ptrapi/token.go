@@ -1,30 +1,22 @@
 package ptrapi
 
 import (
+	"bufio"
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
 	"net/netip"
 	"os"
-	"path/filepath"
 	"strings"
-	"time"
-
-	"golang.org/x/crypto/ssh"
 
 	"github.com/dgraph-io/badger/v4"
 	oaerrors "github.com/go-openapi/errors"
-)
-
-const (
-	sshTimeOut = time.Duration(5 * time.Second)
-	optsLen    = 3
+	"github.com/golang-jwt/jwt"
 )
 
 type AuthEntry struct {
-	SSHConfig   *ssh.ClientConfig
-	TokenDigest string
-	AllowedFrom []netip.Prefix
+	Token      string
+	AllowedIPs []netip.Prefix
 }
 
 type AuthMap map[string]AuthEntry
@@ -35,7 +27,7 @@ var (
 )
 
 // ValidateBearer - validate our key.
-func ValidateBearer(db *badger.DB, m AuthMap) func(string) (interface{}, error) {
+func ValidateBearer(db *badger.DB, secret string, m AuthMap) func(string) (interface{}, error) {
 	return func(bearerHeader string) (interface{}, error) {
 		_, bearerToken, ok := strings.Cut(bearerHeader, " ")
 		if !ok {
@@ -44,6 +36,13 @@ func ValidateBearer(db *badger.DB, m AuthMap) func(string) (interface{}, error) 
 
 		tokenSha256 := sha256.Sum256([]byte(bearerToken))
 		tokenDgst := base64.StdEncoding.WithPadding(base64.StdPadding).EncodeToString(tokenSha256[:])
+
+		a, ok := m[tokenDgst]
+		if !ok {
+			return nil, ErrTokenInvalid
+		}
+
+		fmt.Fprintf(os.Stderr, "a: %+v\n", a)
 
 		ok, err := CheckRequestLimit(db, tokenSha256)
 		if err != nil {
@@ -54,95 +53,80 @@ func ValidateBearer(db *badger.DB, m AuthMap) func(string) (interface{}, error) 
 			return nil, ErrTooManyRequests
 		}
 
-		if a, ok := m[tokenDgst]; ok {
-			return a, nil
+		// Parse the signed token
+		parsedToken, err := jwt.Parse(bearerToken, func(token *jwt.Token) (interface{}, error) {
+			return []byte(secret), nil
+		})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Parse: %s secret: %s\n", err, secret)
+			return nil, ErrTokenInvalid
 		}
 
-		return nil, ErrTokenInvalid
+		// Check if the token is valid
+		_, ok = parsedToken.Claims.(jwt.MapClaims)
+		if !ok || !parsedToken.Valid {
+			return nil, ErrTokenInvalid
+		}
+
+		return a, nil
 	}
 }
 
-func ReadKeysDir(keysDir, username string) (AuthMap, error) {
-	keysFiles, err := os.ReadDir(keysDir)
-	if err != nil {
-		return nil, fmt.Errorf("readdir: %w", err)
-	}
-
+func ReadTokensFile(filename string) (AuthMap, error) {
 	m := make(AuthMap)
 
-	for _, keyFile := range keysFiles {
-		if !keyFile.Type().IsRegular() || strings.HasSuffix(keyFile.Name(), ".pub") {
+	f, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if len(line) == 0 {
 			continue
 		}
 
-		conf, comment, err := createSSHConfig(filepath.Join(keysDir, keyFile.Name()), username)
-		if err != nil {
+		if line[0] == '#' {
 			continue
 		}
 
-		opts := strings.Split(comment, ";")
-		if len(opts) != optsLen {
+		token, prefixes, ok := strings.Cut(line, ",")
+		if len(token) == 0 {
 			continue
 		}
 
-		tokenDgst := opts[1]
+		tokenSha256 := sha256.Sum256([]byte(token))
+		tokenDgst := base64.StdEncoding.WithPadding(base64.StdPadding).EncodeToString(tokenSha256[:])
 
-		list := strings.Split(opts[2], ",")
-		acl := []netip.Prefix{}
-
-		for _, item := range list {
-			prefix, err := netip.ParsePrefix(item)
-			if err != nil {
-				addr, err := netip.ParseAddr(item)
+		allowedIPs := []netip.Prefix{}
+		if ok {
+			for _, prefix := range strings.Split(prefixes, ",") {
+				ipnet, err := netip.ParsePrefix(prefix)
 				if err != nil {
-					return nil, fmt.Errorf("parse acl: %w", err)
+					ip, err := netip.ParseAddr(prefix)
+					if err != nil {
+						continue
+					}
+
+					allowedIPs = append(allowedIPs, netip.PrefixFrom(ip, 32))
+
+					continue
 				}
 
-				prefix = netip.PrefixFrom(addr, 32)
+				allowedIPs = append(allowedIPs, ipnet)
 			}
-
-			acl = append(acl, prefix)
 		}
 
 		m[tokenDgst] = AuthEntry{
-			SSHConfig:   conf,
-			TokenDigest: tokenDgst,
-			AllowedFrom: acl,
+			Token:      tokenDgst,
+			AllowedIPs: allowedIPs,
 		}
 
-		fmt.Fprintf(os.Stderr, "File: %s\nToken: %s\nACL: %s\n", keyFile.Name(), tokenDgst, opts[2])
+		fmt.Fprintf(os.Stderr, "tokenDgst: %s\n", tokenDgst)
 	}
 
 	return m, nil
-}
-
-func createSSHConfig(filename, username string) (*ssh.ClientConfig, string, error) {
-	// var hostKey ssh.PublicKey
-
-	pemBytes, err := os.ReadFile(filename)
-	if err != nil {
-		return nil, "", fmt.Errorf("read private key: %w", err)
-	}
-
-	comment, err := parseOpenSSHPrivateKey(pemBytes, unencryptedOpenSSHKey)
-	if err != nil {
-		return nil, "", fmt.Errorf("parse comment: %w", err)
-	}
-
-	signer, err := ssh.ParsePrivateKey(pemBytes)
-	if err != nil {
-		return nil, "", fmt.Errorf("parse private key: %w", err)
-	}
-
-	config := &ssh.ClientConfig{
-		User: username,
-		Auth: []ssh.AuthMethod{
-			ssh.PublicKeys(signer),
-		},
-		// HostKeyCallback: ssh.FixedHostKey(hostKey),
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		Timeout:         sshTimeOut,
-	}
-
-	return config, comment, nil
 }
