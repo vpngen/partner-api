@@ -15,11 +15,13 @@ import (
 )
 
 type AuthEntry struct {
-	Token      string
-	AllowedIPs []netip.Prefix
+	TokenDgst       string
+	TokenName       string
+	AllowedIPs      []netip.Prefix
+	HourRequsetsNum int
 }
 
-type AuthMap map[string]AuthEntry
+type AuthMap map[string]*AuthEntry
 
 var (
 	ErrTokenInvalid    = oaerrors.New(401, "invalid token")
@@ -44,10 +46,12 @@ func ValidateBearer(db *badger.DB, secret string, m AuthMap) func(string) (inter
 
 		fmt.Fprintf(os.Stderr, "a: %+v\n", a)
 
-		ok, err := CheckRequestLimit(db, tokenSha256)
+		ok, count, err := CheckRequestLimit(db, tokenSha256)
 		if err != nil {
 			return nil, ErrTokenInvalid
 		}
+
+		a.HourRequsetsNum = count
 
 		if !ok {
 			return nil, ErrTooManyRequests
@@ -72,7 +76,7 @@ func ValidateBearer(db *badger.DB, secret string, m AuthMap) func(string) (inter
 	}
 }
 
-func ReadTokensFile(filename string) (AuthMap, error) {
+func ReadTokensFile(filename, secret string) (AuthMap, error) {
 	m := make(AuthMap)
 
 	f, err := os.Open(filename)
@@ -93,9 +97,29 @@ func ReadTokensFile(filename string) (AuthMap, error) {
 			continue
 		}
 
-		token, prefixes, ok := strings.Cut(line, ",")
+		token, prefixes, _ := strings.Cut(line, ",")
 		if len(token) == 0 {
 			continue
+		}
+
+		// Parse the signed token
+		parsedToken, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
+			return []byte(secret), nil
+		})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Parse: %s secret: %s\n", err, secret)
+			return nil, ErrTokenInvalid
+		}
+
+		// Check if the token is valid
+		claims, ok := parsedToken.Claims.(jwt.MapClaims)
+		if !ok || !parsedToken.Valid {
+			return nil, ErrTokenInvalid
+		}
+
+		tokenName, ok := claims["name"].(string)
+		if !ok || tokenName == "" {
+			return nil, ErrTokenInvalid
 		}
 
 		tokenSha256 := sha256.Sum256([]byte(token))
@@ -120,13 +144,32 @@ func ReadTokensFile(filename string) (AuthMap, error) {
 			}
 		}
 
-		m[tokenDgst] = AuthEntry{
-			Token:      tokenDgst,
+		m[tokenDgst] = &AuthEntry{
+			TokenDgst:  tokenDgst,
 			AllowedIPs: allowedIPs,
+			TokenName:  tokenName,
 		}
-
-		fmt.Fprintf(os.Stderr, "tokenDgst: %s\n", tokenDgst)
 	}
 
 	return m, nil
+}
+
+func CountRequests(db *badger.DB, authMap AuthMap) error {
+	for _, a := range authMap {
+		tokenSha256 := make([]byte, base64.URLEncoding.WithPadding(base64.NoPadding).DecodedLen(len(a.TokenDgst)))
+		_, err := base64.URLEncoding.WithPadding(base64.NoPadding).Decode(tokenSha256, []byte(a.TokenDgst))
+		if err != nil {
+			return err
+		}
+
+		prefix := append([]byte(requestCounterPrefix), tokenSha256...)
+		count, err := countRequests(db, prefix)
+		if err != nil {
+			return fmt.Errorf("count: %w", err)
+		}
+
+		a.HourRequsetsNum = count
+	}
+
+	return nil
 }

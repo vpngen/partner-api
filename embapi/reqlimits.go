@@ -17,23 +17,23 @@ const (
 
 var requestCounterValue = []byte{42}
 
-func CheckRequestLimit(db *badger.DB, token [32]byte) (bool, error) {
+func CheckRequestLimit(db *badger.DB, token [32]byte) (bool, int, error) {
 	prefix := append([]byte(requestCounterPrefix), token[:]...)
 
 	count, err := countRequests(db, prefix)
 	if err != nil {
-		return false, fmt.Errorf("count: %w", err)
+		return false, 0, fmt.Errorf("count: %w", err)
 	}
 
 	if count > requestLimitNumber {
-		return false, nil
+		return false, count, nil
 	}
 
 	if err := incrementRequestCounter(db, prefix); err != nil {
-		return false, fmt.Errorf("inc: %w", err)
+		return false, 0, fmt.Errorf("inc: %w", err)
 	}
 
-	return true, nil
+	return true, count, nil
 }
 
 func countRequests(db *badger.DB, prefix []byte) (int, error) {
@@ -77,8 +77,9 @@ func incrementRequestCounter(db *badger.DB, prefix []byte) error {
 }
 
 func getRequestCounterKey(prefix []byte) []byte {
-	suffix := make([]byte, len(prefix), len(prefix)+15)
+	suffix := make([]byte, len(prefix), len(prefix)+16)
 	copy(suffix, prefix)
+	suffix = append(suffix, ':')
 
 	timestamp := time.Now().UTC().Format("150405.0000")
 	suffix = append(suffix, timestamp...)

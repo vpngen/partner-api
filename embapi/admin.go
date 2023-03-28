@@ -34,7 +34,7 @@ func AddAdmin(params operations.PostAdminParams, principal interface{}, sshConfi
 		return operations.NewPostAdminForbidden()
 	}
 
-	fmt.Fprintf(os.Stderr, "Token: %s\n", auth.Token)
+	fmt.Fprintf(os.Stderr, "Token: %s\n", auth.TokenDgst)
 
 	if !addr.IsValid() {
 		fmt.Fprintln(os.Stderr, "DEBUG CALL: PostAdmin")
@@ -51,7 +51,7 @@ func AddAdmin(params operations.PostAdminParams, principal interface{}, sshConfi
 
 	fmt.Fprintf(os.Stderr, "Call: PostAdmin: %s\n", addr)
 
-	admin, err := callMinistry(auth.Token, sshConfig, addr)
+	admin, err := callMinistry(auth.TokenDgst, sshConfig, addr)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Call: PostAdmin: call ministry: %s\n", err)
 

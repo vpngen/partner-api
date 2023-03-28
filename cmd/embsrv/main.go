@@ -39,7 +39,7 @@ const (
 )
 
 const (
-	DefaultCertDir        = "/etc/vgcerts"
+	DefaultCertDir        = "/etc/embassy-api"
 	DefaultSSHKey         = "/etc/embassy-api/id_ed25519"
 	DefaultTokensFile     = "/etc/embassy-api/tokens.lst"
 	DefaultSessionDbDir   = "/var/lib/embassy-api/db"
@@ -95,7 +95,7 @@ func main() {
 		log.Fatalf("Can't find key: %s\n", err)
 	}
 
-	authMap, err := embapi.ReadTokensFile(tokens)
+	authMap, err := embapi.ReadTokensFile(tokens, jwtSeceret)
 	if err != nil {
 		log.Fatalf("Can't read tokens file: %s\n", err)
 	}
@@ -150,7 +150,7 @@ func main() {
 	wg := &sync.WaitGroup{}
 
 	wg.Add(1)
-	go badgerGC(wg, db, stop)
+	go badgerGC(wg, db, authMap, stop)
 
 	fmt.Fprintf(os.Stderr, "Listen HTTP: %s\n", listeners[0].Addr().String())
 	if serverTLS != nil {
@@ -336,7 +336,7 @@ func uiMiddleware(handler http.Handler) http.Handler {
 	})
 }
 
-func badgerGC(wg *sync.WaitGroup, db *badger.DB, stop <-chan struct{}) {
+func badgerGC(wg *sync.WaitGroup, db *badger.DB, m embapi.AuthMap, stop <-chan struct{}) {
 	defer wg.Done()
 
 	timer := time.NewTimer(5 * time.Minute)
@@ -351,6 +351,8 @@ func badgerGC(wg *sync.WaitGroup, db *badger.DB, stop <-chan struct{}) {
 			if err == nil {
 				goto again
 			}
+
+			embapi.CountRequests(db, m)
 
 			timer.Reset(5 * time.Minute)
 		case <-stop:

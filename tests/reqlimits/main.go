@@ -66,12 +66,12 @@ func main() {
 
 		switch c % 2 {
 		case 0:
-			bool, err = embapi.CheckRequestLimit(db, token2)
+			bool, _, err = embapi.CheckRequestLimit(db, token2)
 			if err != nil {
 				log.Fatalf("loop: %s\n", err)
 			}
 		default:
-			bool, err = embapi.CheckRequestLimit(db, token1)
+			bool, _, err = embapi.CheckRequestLimit(db, token1)
 			if err != nil {
 				log.Fatalf("loop: %s\n", err)
 			}
