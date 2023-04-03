@@ -40,7 +40,7 @@ contents:
     owner: vgapi
     group: vgapi
 - src: partner-api/cmd/embsrv/gentoken.sh
-  dst: /opt/empassy-api/gentoken.sh
+  dst: /opt/embassy-api/gentoken.sh
   file_info:
     mode: 0500
     owner: vgapi
