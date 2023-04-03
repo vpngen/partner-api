@@ -36,7 +36,7 @@ contents:
 - src: /data/src/environments.sample
   dst: /etc/embassy-api/environments.sample
   file_info:
-    mode: 0500
+    mode: 0600
     owner: vgapi
     group: vgapi
 - src: partner-api/cmd/embsrv/gentoken.sh
