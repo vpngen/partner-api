@@ -48,7 +48,7 @@ contents:
 - src: bin/embsrv
   dst: /opt/embassy-api/embsrv
   file_info:
-    mode: 0005
+    mode: 0500
     owner: vgapi
     group: vgapi
 - src: partner-api/systemd/embassy_api.service
@@ -61,4 +61,3 @@ overrides:
       postremove: /data/src/postremove.sh
 deb:
   compression: xz
-
