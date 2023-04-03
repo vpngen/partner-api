@@ -1,0 +1,64 @@
+name: "embassy-api"
+arch: "all"
+platform: "linux"
+version: ${PACKAGE_VERSION}
+section: "default"
+priority: "optional"
+release: ${PACKAGE_RELEASE}
+
+provides:
+- embassy-api
+
+maintainer: "Ingmund Ollson <ingmund@proton.me>"
+description: VPNGen Embassy API
+vendor: "VPNGen"
+homepage: "http://vpngen.org"
+
+contents:
+- dst: /opt/embassy-api
+  type: dir
+  file_info:
+    mode: 0750
+    owner: root
+    group: vgapi
+- dst: /var/lib/embassy-api
+  type: dir
+  file_info:
+    mode: 0700
+    owner: vgapi
+    group: vgapi
+- dst: /etc/embassy-api
+  type: dir
+  file_info:
+    mode: 0700
+    owner: vgapi
+    group: vgapi
+- src: /data/src/environments.sample
+  dst: /etc/embassy-api/environments.sample
+  file_info:
+    mode: 0500
+    owner: vgapi
+    group: vgapi
+- src: partner-api/cmd/embsrv/gentoken.sh
+  dst: /opt/empassy-api/gentoken.sh
+  file_info:
+    mode: 0500
+    owner: vgapi
+    group: vgapi
+- src: bin/embsrv
+  dst: /opt/embassy-api/embsrv
+  file_info:
+    mode: 0005
+    owner: vgapi
+    group: vgapi
+- src: partner-api/systemd/embassy_api.service
+  dst: /etc/systemd/system/embassy_api.service
+
+overrides:
+  deb:
+    scripts:
+      preinstall: /data/src/preinstall.sh
+      postremove: /data/src/postremove.sh
+deb:
+  compression: xz
+

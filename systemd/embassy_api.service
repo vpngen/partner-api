@@ -1,0 +1,19 @@
+[Unit]
+Description = VPNGen Embassy API Service
+
+[Service]
+EnvironmentFile=/etc/embassy-api/environmets
+User=${EMPASSY_API_USER}
+Group=${EMBASSY_API_GROUP}
+WorkingDirectory=/home/${EMPASSY_API_USER}
+ExecStart = /opt/vgapi/embsrv \
+        -a ${MINISTRY_ENDPOINT} \
+        -u ${MINISTRY_ENDPOINT_USER} \
+        -e ${EMBASSY_ETC_DIR} \
+        -t ${EMBASSY_TOKENS_FILE} \
+        -k ${EMBASSY_SSH_KEY_FILE} \
+        -d ${EMBASSY_BADGER_DB} \
+        -l ${EMBASSY_LISTEN_HTTP},${EMBASSY_LISTEN_HTTPS}
+
+[Install]
+WantedBy=multi-user.target
