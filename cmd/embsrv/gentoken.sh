@@ -60,7 +60,7 @@ echo "Generated JWT: $jwt"
 
 if [ -n "${ALLOWED_PREFIXES}" ]; then
         echo "Allowed prefixes: ${ALLOWED_PREFIXES}"
-        echo "${jwt},${ALLOWED_PREFIXES}" >> "${TOKEN_FILE}"
+        echo "${dgst}:${NAME},${ALLOWED_PREFIXES}" >> "${TOKEN_FILE}"
 else
-        echo "${jwt}" >> "${TOKEN_FILE}"
+        echo "${dgst}:${NAME}" >> "${TOKEN_FILE}"
 fi

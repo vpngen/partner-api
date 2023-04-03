@@ -96,32 +96,14 @@ func ReadTokensFile(filename, secret string) (AuthMap, error) {
 		}
 
 		token, prefixes, _ := strings.Cut(line, ",")
-		if len(token) == 0 {
+		if token == "" {
 			continue
 		}
 
-		// Parse the signed token
-		parsedToken, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
-			return []byte(secret), nil
-		})
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Parse: %s secret: %s\n", err, secret)
+		tokenDgst, tokenName, ok := strings.Cut(token, ":")
+		if tokenDgst == "" || tokenName == "" {
 			return nil, ErrTokenInvalid
 		}
-
-		// Check if the token is valid
-		claims, ok := parsedToken.Claims.(jwt.MapClaims)
-		if !ok || !parsedToken.Valid {
-			return nil, ErrTokenInvalid
-		}
-
-		tokenName, ok := claims["name"].(string)
-		if !ok || tokenName == "" {
-			return nil, ErrTokenInvalid
-		}
-
-		tokenSha256 := sha256.Sum256([]byte(token))
-		tokenDgst := base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString(tokenSha256[:])
 
 		allowedIPs := []netip.Prefix{}
 		if ok {
