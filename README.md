@@ -82,7 +82,7 @@ Each token is a JWT token that includes a 'name' claim, with the token name bein
 
 ### Generation
 
-* Generate a token using the gentoken.sh script. This script creates a random token name and a JWT token with an HMAC 256 signature. The token name, token, and its SHA-256 digest base64url encoded are displayed on stdout and the token is saved to the `tokens` file.
+* Generate a token using the gentoken.sh script. This script creates a random token name and a JWT token with an HMAC 256 signature. The token name, token, and its SHA-256 digest base64url encoded are displayed on stdout and the token hash is saved to the `tokens` file.
 * Add the token's SHA-256 digest base64url encoded and the token name to the ministry database. The hash serves to authenticate the embassy. The token name is used to identify the key.
 
 ## Monitoring
@@ -114,3 +114,11 @@ __NOTE:__ There is no token in the list just mnemonics of the key pairs. The som
   * Keys is the token sha256 digest concatenated with the hour, minute and second of the request time.
   * Keys are stored in the database with TTL equal 1 hour.
   * Request count calculated with prefix scan key-only iteration.
+
+  ## Security
+
+* API server doesn't store tokens in the database. It uses the token sha256 digest as a key to the database.
+* API Reqests history stored in the database with AES encryption.
+* Serice works with the minimum privileges. The service user is not a member of the sudoers group.
+* API token is a JWT token with HMAC 256 signature.
+* If API server handle HTTPS request, it will redirect all HTTP requests to HTTPS.
