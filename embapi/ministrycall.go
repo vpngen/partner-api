@@ -31,7 +31,7 @@ const (
 func callMinistry(dgst string, conf *ssh.ClientConfig, addr netip.AddrPort) (*grantPkg, error) {
 	pkg := &grantPkg{}
 
-	cmd := fmt.Sprintf("-ch %s", dgst)
+	cmd := fmt.Sprintf("createbrigade -ch %s", dgst)
 
 	fmt.Fprintf(os.Stderr, "%s#%s -> %s\n", conf.User, addr, cmd)
 
