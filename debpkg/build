@@ -87,7 +87,7 @@ if [ "$1" = "pkg" ]; then
 
         git config --global url."ssh://git@github.com/".insteadOf "https://github.com/"
 
-        git clone ssh://git@github.com/vpngen/partner-api
+        git clone -b "${BRANCH}" ssh://git@github.com/vpngen/partner-api
         
         constract_version "partner-api"
 
