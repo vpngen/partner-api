@@ -20,7 +20,11 @@ if [ -z "${JWT_SIGN_KEY}" ]; then
 fi
 
 if [ -n "$1" ]; then
-        ALLOWED_PREFIXES="$1"
+        DESCRIPTION="$1"
+fi
+
+if [ -n "$2" ]; then
+        ALLOWED_PREFIXES="$2"
 fi
 
 while true; do
@@ -31,7 +35,7 @@ while true; do
         payload_encoded=$(base64UrlEncode "$payload")
 
         if [ -f "${TOKEN_FILE}" ]; then
-                if grep "^${payload_encoded}" "${TOKEN_FILE}" >/dev/null 2>&1; then
+                if grep -q "${payload_encoded}$" "${TOKEN_FILE}" >/dev/null 2>&1; then
                         echo "Token already exists"
                         continue
                 fi
@@ -57,6 +61,11 @@ echo "JWT digest: ${dgst}"
 
 # Output the JWT token
 echo "Generated JWT: $jwt"
+
+if [ -n "${DESCRIPTION}" ]; then
+        echo "Description: ${DESCRIPTION}"
+        NAME="${NAME}:${DESCRIPTION}"
+fi
 
 if [ -n "${ALLOWED_PREFIXES}" ]; then
         echo "Allowed prefixes: ${ALLOWED_PREFIXES}"

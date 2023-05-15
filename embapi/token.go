@@ -17,6 +17,7 @@ import (
 type AuthEntry struct {
 	TokenDgst       string
 	TokenName       string
+	TokenDesc       string
 	AllowedIPs      []netip.Prefix
 	HourRequsetsNum int
 }
@@ -95,15 +96,17 @@ func ReadTokensFile(filename, secret string) (AuthMap, error) {
 			continue
 		}
 
-		token, prefixes, _ := strings.Cut(line, ",")
+		token, prefixes, ok := strings.Cut(line, ",")
 		if token == "" {
 			continue
 		}
 
-		tokenDgst, tokenName, ok := strings.Cut(token, ":")
+		tokenDgst, tokenName, _ := strings.Cut(token, ":")
 		if tokenDgst == "" || tokenName == "" {
 			return nil, ErrTokenInvalid
 		}
+
+		tokenName, tokenDesc, _ := strings.Cut(tokenName, ":")
 
 		allowedIPs := []netip.Prefix{}
 		if ok {
@@ -128,6 +131,7 @@ func ReadTokensFile(filename, secret string) (AuthMap, error) {
 			TokenDgst:  tokenDgst,
 			AllowedIPs: allowedIPs,
 			TokenName:  tokenName,
+			TokenDesc:  tokenDesc,
 		}
 	}
 

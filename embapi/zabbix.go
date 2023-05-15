@@ -24,7 +24,7 @@ func ZabbixCounterHandler(w http.ResponseWriter, r *http.Request, auth AuthMap) 
 
 		for _, a := range auth {
 			if a.TokenName == token {
-				zabbixResponse := fmt.Sprintf("%s:%d\n", a.TokenName, a.HourRequsetsNum)
+				zabbixResponse := fmt.Sprintf("%d\n", a.HourRequsetsNum)
 
 				w.Header().Set("Content-Type", "text/plain")
 				w.WriteHeader(http.StatusOK)
@@ -38,9 +38,26 @@ func ZabbixCounterHandler(w http.ResponseWriter, r *http.Request, auth AuthMap) 
 		w.Write([]byte("Not found"))
 	case "list":
 		var zabbixResponse strings.Builder
+		first := true
+
+		zabbixResponse.WriteString("[")
 		for _, a := range auth {
-			zabbixResponse.WriteString(fmt.Sprintln(a.TokenName))
+			if !first {
+				zabbixResponse.WriteString(",")
+			}
+
+			first = false
+
+			zabbixResponse.WriteString(
+				fmt.Sprintf(
+					"{\"{#VPNGEN_PARTNER_NAME}\": \"%s\", \"{#VPNGEN_PARTNER_ID}\": \"%s\"}",
+					a.TokenDesc,
+					a.TokenName,
+				),
+			)
 		}
+
+		zabbixResponse.WriteString("]")
 
 		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusOK)
