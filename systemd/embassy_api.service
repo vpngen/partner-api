@@ -13,7 +13,7 @@ ExecStart = /opt/embassy-api/embsrv \
         -t ${EMBASSY_TOKENS_FILE} \
         -k ${EMBASSY_SSH_KEY_FILE} \
         -d ${EMBASSY_BADGER_DB} \
-        -l ${EMBASSY_LISTEN_HTTP},${EMBASSY_LISTEN_HTTPS}
+        -l ${EMBASSY_LISTEN_HTTP},${EMBASSY_LISTEN_HTTPS} \
         -z ${EMBASSY_LISTEN_ZABBIX_EXPORTER}
 
 [Install]
