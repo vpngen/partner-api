@@ -105,7 +105,9 @@ func callMinistry(dgst string, conf *ssh.ClientConfig, addr netip.AddrPort) (*gr
 }
 
 func genGrants(dgst string, conf *ssh.ClientConfig, addr netip.AddrPort) (*grantPkg, error) {
-	cmd := fmt.Sprintf("checkbrigade -ch -j %s", dgst)
+	base64name := base64.StdEncoding.EncodeToString([]byte("Веселый Кеттерле"))
+	base64words := base64.StdEncoding.EncodeToString([]byte("несчастный подводный бывать победа долг дядя"))
+	cmd := fmt.Sprintf("restorebrigadier -ch -j %s %s", base64name, base64words)
 
 	fmt.Fprintf(os.Stderr, "%s#%s -> %s\n", conf.User, addr, cmd)
 
