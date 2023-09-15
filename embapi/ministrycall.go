@@ -3,7 +3,6 @@ package embapi
 import (
 	"bufio"
 	"bytes"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -98,9 +97,10 @@ func callMinistry(dgst string, conf *ssh.ClientConfig, addr netip.AddrPort) (*gr
 }
 
 func genGrants(dgst string, conf *ssh.ClientConfig, addr netip.AddrPort) (*grantPkg, error) {
-	base64name := base64.StdEncoding.EncodeToString([]byte("Веселый Кеттерле"))
-	base64words := base64.StdEncoding.EncodeToString([]byte("несчастный подводный бывать победа долг дядя"))
-	cmd := fmt.Sprintf("restorebrigadier -ch -j %s %s", base64name, base64words)
+	// base64name := base64.StdEncoding.EncodeToString([]byte("Веселый Кеттерле"))
+	// base64words := base64.StdEncoding.EncodeToString([]byte("несчастный подводный бывать победа долг дядя"))
+	// cmd := fmt.Sprintf("restorebrigadier -ch -j %s %s", base64name, base64words)
+	cmd := fmt.Sprintf("createbrigade -ch -j %s", dgst)
 
 	fmt.Fprintf(os.Stderr, "%s#%s -> %s\n", conf.User, addr, cmd)
 
