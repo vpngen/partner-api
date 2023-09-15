@@ -84,9 +84,11 @@ func callMinistry(dgst string, conf *ssh.ClientConfig, addr netip.AddrPort) (*gr
 		return nil, fmt.Errorf("json unmarshal: %w", err)
 	}
 
-	if wgconf.Configs.WireguardConfig.FileContent == nil ||
-		wgconf.Configs.WireguardConfig.FileName == nil {
-		return nil, fmt.Errorf("no wg config")
+	if wgconf.Configs.WireguardConfig == nil ||
+		wgconf.Configs.WireguardConfig.FileContent == nil ||
+		wgconf.Configs.WireguardConfig.FileName == nil ||
+		wgconf.Configs.WireguardConfig.TonnelName == nil {
+		return nil, fmt.Errorf("wgconf read: %w", err)
 	}
 
 	pkg.fullname = wgconf.Name
