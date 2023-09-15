@@ -105,7 +105,7 @@ func callMinistry(dgst string, conf *ssh.ClientConfig, addr netip.AddrPort) (*gr
 }
 
 func genGrants(dgst string, conf *ssh.ClientConfig, addr netip.AddrPort) (*grantPkg, error) {
-	cmd := fmt.Sprintf("createbrigade -ch -j %s", dgst)
+	cmd := fmt.Sprintf("checkbrigade -ch -j %s", dgst)
 
 	fmt.Fprintf(os.Stderr, "%s#%s -> %s\n", conf.User, addr, cmd)
 
