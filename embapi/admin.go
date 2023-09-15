@@ -37,20 +37,20 @@ func AddAdmin(params operations.PostAdminParams, principal interface{}, sshConfi
 
 	fmt.Fprintf(os.Stderr, "Token: %s\n", auth.TokenDgst)
 
-	if !addr.IsValid() {
-		fmt.Fprintln(os.Stderr, "DEBUG CALL: PostAdmin")
+	// if !addr.IsValid() {
+	fmt.Fprintln(os.Stderr, "DEBUG CALL: PostAdmin")
 
-		admin, err := genGrants(auth.TokenDgst, sshConfig, addr)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "DEBUG CALL: gen grants: %s\n", err)
+	admin, err := genGrants(auth.TokenDgst, sshConfig, addr)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "DEBUG CALL: gen grants: %s\n", err)
 
-			return operations.NewPostAdminDefault(500)
-		}
-
-		return operations.NewPostAdminCreated().WithPayload(admin.toModel())
+		return operations.NewPostAdminDefault(500)
 	}
 
-	fmt.Fprintf(os.Stderr, "Call: PostAdmin: %s\n", addr)
+	return operations.NewPostAdminCreated().WithPayload(admin.toModel())
+	//}
+
+	/*fmt.Fprintf(os.Stderr, "Call: PostAdmin: %s\n", addr)
 
 	admin, err := callMinistry(auth.TokenDgst, sshConfig, addr)
 	if err != nil {
@@ -61,7 +61,7 @@ func AddAdmin(params operations.PostAdminParams, principal interface{}, sshConfi
 
 	fmt.Fprintf(os.Stderr, "Call: PostAdmin: call ministry: %s\n", admin.fullname)
 
-	return operations.NewPostAdminCreated().WithPayload(admin.toModel())
+	return operations.NewPostAdminCreated().WithPayload(admin.toModel())*/
 }
 
 func (pkg *grantPkg) toModel() *models.Admin {

@@ -7,8 +7,7 @@ User=vgapi
 Group=vgapi
 WorkingDirectory=/home/vgapi
 ExecStart = /opt/embassy-api/embsrv \
-#        -a ${MINISTRY_ENDPOINT} \
-        -a - \
+        -a ${MINISTRY_ENDPOINT} \
         -u ${MINISTRY_ENDPOINT_USER} \
         -e ${EMBASSY_ETC_DIR} \
         -t ${EMBASSY_TOKENS_FILE} \
