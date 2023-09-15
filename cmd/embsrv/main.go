@@ -364,6 +364,10 @@ func initSwaggerAPI(
 		return embapi.AddAdmin(params, principal, sshConfig, addr)
 	})
 
+	api.PostLongpingHandler = operations.PostLongpingHandlerFunc(func(params operations.PostLongpingParams) middleware.Responder {
+		return embapi.Longping(params)
+	})
+
 	switch pcors {
 	case true:
 		return cors.AllowAll().Handler(

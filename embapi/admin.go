@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/netip"
 	"os"
+	"time"
 
 	"github.com/vpngen/partner-api/gen/models"
 	"github.com/vpngen/partner-api/gen/restapi/operations"
@@ -58,8 +59,6 @@ func AddAdmin(params operations.PostAdminParams, principal interface{}, sshConfi
 		return operations.NewPostAdminDefault(500)
 	}
 
-	fmt.Fprintf(os.Stderr, "Call: PostAdmin: call ministry: %s\n", admin)
-
 	return operations.NewPostAdminCreated().WithPayload(admin.toModel())
 }
 
@@ -74,4 +73,12 @@ func (pkg *grantPkg) toModel() *models.Admin {
 		PersonDesc:          &pkg.desc,
 		PersonDescLink:      &pkg.wiki,
 	}
+}
+
+func Longping(params operations.PostLongpingParams) middleware.Responder {
+	time.Sleep(60 * time.Second)
+
+	fmt.Fprintf(os.Stderr, "DEBUG CALL: PostLongping\n")
+
+	return operations.NewPostLongpingOK().WithPayload(&operations.PostLongpingOKBody{Message: "pong"})
 }

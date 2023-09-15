@@ -55,6 +55,11 @@ func configureAPI(api *operations.AdminAPI) http.Handler {
 			return middleware.NotImplemented("operation operations.PostAdmin has not yet been implemented")
 		})
 	}
+	if api.PostLongpingHandler == nil {
+		api.PostLongpingHandler = operations.PostLongpingHandlerFunc(func(params operations.PostLongpingParams) middleware.Responder {
+			return middleware.NotImplemented("operation operations.PostLongping has not yet been implemented")
+		})
+	}
 
 	api.PreServerShutdown = func() {}
 

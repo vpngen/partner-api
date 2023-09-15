@@ -45,6 +45,9 @@ func NewAdminAPI(spec *loads.Document) *AdminAPI {
 		PostAdminHandler: PostAdminHandlerFunc(func(params PostAdminParams, principal interface{}) middleware.Responder {
 			return middleware.NotImplemented("operation PostAdmin has not yet been implemented")
 		}),
+		PostLongpingHandler: PostLongpingHandlerFunc(func(params PostLongpingParams) middleware.Responder {
+			return middleware.NotImplemented("operation PostLongping has not yet been implemented")
+		}),
 
 		// Applies when the "Authorization" header is set
 		BearerAuth: func(token string) (interface{}, error) {
@@ -97,6 +100,8 @@ type AdminAPI struct {
 
 	// PostAdminHandler sets the operation handler for the post admin operation
 	PostAdminHandler PostAdminHandler
+	// PostLongpingHandler sets the operation handler for the post longping operation
+	PostLongpingHandler PostLongpingHandler
 
 	// ServeError is called when an error is received, there is a default handler
 	// but you can set your own with this
@@ -180,6 +185,9 @@ func (o *AdminAPI) Validate() error {
 
 	if o.PostAdminHandler == nil {
 		unregistered = append(unregistered, "PostAdminHandler")
+	}
+	if o.PostLongpingHandler == nil {
+		unregistered = append(unregistered, "PostLongpingHandler")
 	}
 
 	if len(unregistered) > 0 {
@@ -282,6 +290,10 @@ func (o *AdminAPI) initHandlerCache() {
 		o.handlers["POST"] = make(map[string]http.Handler)
 	}
 	o.handlers["POST"]["/admin"] = NewPostAdmin(o.context, o.PostAdminHandler)
+	if o.handlers["POST"] == nil {
+		o.handlers["POST"] = make(map[string]http.Handler)
+	}
+	o.handlers["POST"]["/longping"] = NewPostLongping(o.context, o.PostLongpingHandler)
 }
 
 // Serve creates a http handler to serve the API over HTTP
@@ -323,6 +335,6 @@ func (o *AdminAPI) AddMiddlewareFor(method, path string, builder middleware.Buil
 	}
 	o.Init()
 	if h, ok := o.handlers[um][path]; ok {
-		o.handlers[method][path] = builder(h)
+		o.handlers[um][path] = builder(h)
 	}
 }
