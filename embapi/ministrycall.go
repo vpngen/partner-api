@@ -141,7 +141,16 @@ func genGrants(dgst string, conf *ssh.ClientConfig, addr netip.AddrPort) (*grant
 		}
 	}()
 
-	session.Run(cmd)
+	if err := session.Run(cmd); err != nil {
+		return nil, fmt.Errorf("ssh run: %w", err)
+	}
+
+	r := bufio.NewReader(httputil.NewChunkedReader(&b))
+
+	_, err = io.ReadAll(r)
+	if err != nil {
+		return nil, fmt.Errorf("chunk read: %w", err)
+	}
 
 	// ------------------------
 
