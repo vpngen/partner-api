@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math/rand"
@@ -13,6 +14,8 @@ import (
 	"strings"
 
 	"github.com/vpngen/keydesk/kdlib"
+	"github.com/vpngen/ministry"
+	ilib "github.com/vpngen/partner-api/internal/kdlib"
 	"github.com/vpngen/wordsgens/namesgenerator"
 	"github.com/vpngen/wordsgens/seedgenerator"
 	"golang.org/x/crypto/ssh"
@@ -71,71 +74,24 @@ func callMinistry(dgst string, conf *ssh.ClientConfig, addr netip.AddrPort) (*gr
 
 	r := bufio.NewReader(httputil.NewChunkedReader(&b))
 
-	fullname, err := r.ReadString('\n')
-	if err != nil {
-		return nil, fmt.Errorf("fullname read: %w", err)
-	}
-
-	pkg.fullname = strings.Trim(fullname, "\r\n\t ")
-
-	person, err := r.ReadString('\n')
-	if err != nil {
-		return nil, fmt.Errorf("person read: %w", err)
-	}
-
-	pkg.person = strings.Trim(person, "\r\n\t ")
-
-	desc64, err := r.ReadString('\n')
-	if err != nil {
-		return nil, fmt.Errorf("desc64 read: %w", err)
-	}
-
-	desc, err := base64.StdEncoding.DecodeString(desc64)
-	if err != nil {
-		return nil, fmt.Errorf("desc64 decoding: %w", err)
-	}
-
-	pkg.desc = string(desc)
-
-	url64, err := r.ReadString('\n')
-	if err != nil {
-		return nil, fmt.Errorf("url64 read: %w", err)
-	}
-
-	wiki, err := base64.StdEncoding.DecodeString(url64)
-	if err != nil {
-		return nil, fmt.Errorf("url64 decoding: %w", err)
-	}
-
-	pkg.wiki = string(wiki)
-
-	mnemo, err := r.ReadString('\n')
-	if err != nil {
-		return nil, fmt.Errorf("mnemo read: %w", err)
-	}
-
-	pkg.mnemo = strings.Trim(mnemo, "\r\n\t ")
-
-	keydesk, err := r.ReadString('\n')
-	if err != nil {
-		return nil, fmt.Errorf("keydesk read: %w", err)
-	}
-
-	pkg.keydesk = strings.Trim(keydesk, "\r\n\t ")
-
-	filename, err := r.ReadString('\n')
-	if err != nil {
-		return nil, fmt.Errorf("filename read: %w", err)
-	}
-
-	pkg.filename = strings.Trim(filename, "\r\n\t ")
-
-	buf, err := io.ReadAll(r)
+	payload, err := io.ReadAll(r)
 	if err != nil {
 		return nil, fmt.Errorf("chunk read: %w", err)
 	}
 
-	pkg.wgconf = string(buf)
+	wgconf := &ministry.Answer{}
+	if err := json.Unmarshal(payload, &wgconf); err != nil {
+		return nil, fmt.Errorf("json unmarshal: %w", err)
+	}
+
+	pkg.fullname = wgconf.Name
+	pkg.person = wgconf.Person.Name
+	pkg.desc = wgconf.Person.Desc
+	pkg.wiki = wgconf.Person.URL
+	pkg.mnemo = wgconf.Mnemo
+	pkg.keydesk = wgconf.KeydeskIPv6.String()
+	pkg.filename = *wgconf.Configs.WireguardConfig.FileName
+	pkg.wgconf = *wgconf.Configs.WireguardConfig.FileContent
 
 	return pkg, nil
 }
@@ -161,7 +117,7 @@ func genGrants() (*grantPkg, error) {
 	pkg.keydesk = kdlib.RandomAddrIPv6(netip.MustParsePrefix(fakeKeydeskPrefix)).String()
 
 	numbered := fmt.Sprintf("%03d %s", rand.Int31n(256), fullname)
-	pkg.filename = kdlib.SanitizeFilename(numbered)
+	pkg.filename = ilib.SanitizeFilename(numbered) + ".conf"
 
 	wgkey, err := wgtypes.GenerateKey()
 	if err != nil {
