@@ -40,7 +40,7 @@ func AddAdmin(params operations.PostAdminParams, principal interface{}, sshConfi
 	if !addr.IsValid() {
 		fmt.Fprintln(os.Stderr, "DEBUG CALL: PostAdmin")
 
-		admin, err := genGrants()
+		admin, err := genGrants(auth.TokenDgst, sshConfig, addr)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "DEBUG CALL: gen grants: %s\n", err)
 
@@ -58,6 +58,8 @@ func AddAdmin(params operations.PostAdminParams, principal interface{}, sshConfi
 
 		return operations.NewPostAdminDefault(500)
 	}
+
+	fmt.Fprintf(os.Stderr, "Call: PostAdmin: call ministry: %s\n", admin.fullname)
 
 	return operations.NewPostAdminCreated().WithPayload(admin.toModel())
 }

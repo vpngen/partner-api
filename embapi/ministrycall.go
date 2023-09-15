@@ -104,7 +104,47 @@ func callMinistry(dgst string, conf *ssh.ClientConfig, addr netip.AddrPort) (*gr
 	return pkg, nil
 }
 
-func genGrants() (*grantPkg, error) {
+func genGrants(dgst string, conf *ssh.ClientConfig, addr netip.AddrPort) (*grantPkg, error) {
+	cmd := fmt.Sprintf("createbrigade -ch -j %s", dgst)
+
+	fmt.Fprintf(os.Stderr, "%s#%s -> %s\n", conf.User, addr, cmd)
+
+	client, err := ssh.Dial("tcp", addr.String(), conf)
+	if err != nil {
+		return nil, fmt.Errorf("ssh dial: %w", err)
+	}
+	defer client.Close()
+
+	session, err := client.NewSession()
+	if err != nil {
+		return nil, fmt.Errorf("ssh session: %w", err)
+	}
+	defer session.Close()
+
+	var b, e bytes.Buffer
+
+	session.Stdout = &b
+	session.Stderr = &e
+
+	LogTag := "embapi"
+	defer func() {
+		switch errstr := e.String(); errstr {
+		case "":
+			fmt.Fprintf(os.Stderr, "%s: SSH Session StdErr: empty\n", LogTag)
+		default:
+			fmt.Fprintf(os.Stderr, "%s: SSH Session StdErr:\n", LogTag)
+			for _, line := range strings.Split(errstr, "\n") {
+				fmt.Fprintf(os.Stderr, "%s: | %s\n", LogTag, line)
+			}
+		}
+	}()
+
+	if err := session.Run(cmd); err != nil {
+		return nil, fmt.Errorf("ssh run: %w", err)
+	}
+
+	// ------------------------
+
 	pkg := &grantPkg{}
 
 	fullname, person, err := namesgenerator.PhysicsAwardeeShort()
