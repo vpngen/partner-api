@@ -147,9 +147,14 @@ func genGrants(dgst string, conf *ssh.ClientConfig, addr netip.AddrPort) (*grant
 
 	r := bufio.NewReader(httputil.NewChunkedReader(&b))
 
-	_, err = io.ReadAll(r)
+	payload, err := io.ReadAll(r)
 	if err != nil {
 		return nil, fmt.Errorf("chunk read: %w", err)
+	}
+
+	wgconf := &ministry.Answer{}
+	if err := json.Unmarshal(payload, &wgconf); err != nil {
+		return nil, fmt.Errorf("json unmarshal: %w", err)
 	}
 
 	// ------------------------
