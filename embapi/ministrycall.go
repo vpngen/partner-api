@@ -12,6 +12,7 @@ import (
 	"net/netip"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/vpngen/keydesk/kdlib"
 	"github.com/vpngen/ministry"
@@ -163,6 +164,8 @@ AllowedIPs = 0.0.0.0/0,::/0
 		base64.StdEncoding.WithPadding(base64.StdPadding).EncodeToString(wgpub[:]),
 		base64.StdEncoding.WithPadding(base64.StdPadding).EncodeToString(wgkey[:]),
 	)
+
+	time.Sleep(15 * time.Second)
 
 	return pkg, nil
 }

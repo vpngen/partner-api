@@ -76,7 +76,7 @@ func (pkg *grantPkg) toModel() *models.Admin {
 }
 
 func Longping(params operations.PostLongpingParams) middleware.Responder {
-	time.Sleep(60 * time.Second)
+	time.Sleep(20 * time.Second)
 
 	fmt.Fprintf(os.Stderr, "DEBUG CALL: PostLongping\n")
 
