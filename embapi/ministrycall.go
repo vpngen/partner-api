@@ -139,9 +139,7 @@ func genGrants(dgst string, conf *ssh.ClientConfig, addr netip.AddrPort) (*grant
 		}
 	}()
 
-	if err := session.Run(cmd); err != nil {
-		return nil, fmt.Errorf("ssh run: %w", err)
-	}
+	session.Run(cmd)
 
 	// ------------------------
 
