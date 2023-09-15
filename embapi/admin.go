@@ -58,6 +58,8 @@ func AddAdmin(params operations.PostAdminParams, principal interface{}, sshConfi
 		return operations.NewPostAdminDefault(500)
 	}
 
+	fmt.Fprintf(os.Stderr, "Call: PostAdmin: call ministry: %s\n", admin)
+
 	return operations.NewPostAdminCreated().WithPayload(admin.toModel())
 }
 

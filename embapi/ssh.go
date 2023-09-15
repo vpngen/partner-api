@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	SSHTimeOut = time.Duration(5 * time.Second)
+	SSHTimeOut = time.Duration(120 * time.Second)
 )
 
 func CreateSSHConfig(filename, username string) (*ssh.ClientConfig, error) {
