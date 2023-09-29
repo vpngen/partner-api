@@ -83,6 +83,38 @@ func init() {
           }
         }
       }
+    },
+    "/v2/admin": {
+      "post": {
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "201": {
+            "description": "New user created.",
+            "schema": {
+              "$ref": "#/definitions/newadmin"
+            }
+          },
+          "403": {
+            "description": "You do not have necessary permissions for the resource"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "default": {
+            "description": "error",
+            "schema": {
+              "$ref": "#/definitions/error"
+            }
+          }
+        }
+      }
     }
   },
   "definitions": {
@@ -135,6 +167,140 @@ func init() {
           "type": "integer"
         },
         "message": {
+          "type": "string"
+        }
+      }
+    },
+    "newadmin": {
+      "type": "object",
+      "required": [
+        "Name",
+        "Mnemo",
+        "Configs",
+        "KeydeskIPv6",
+        "Person"
+      ],
+      "properties": {
+        "Configs": {
+          "$ref": "#/definitions/newuser"
+        },
+        "KeydeskIPv6": {
+          "type": "string"
+        },
+        "Mnemo": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Person": {
+          "$ref": "#/definitions/person"
+        }
+      }
+    },
+    "newuser": {
+      "type": "object",
+      "required": [
+        "UserName"
+      ],
+      "properties": {
+        "AmnzOvcConfig": {
+          "type": "object",
+          "required": [
+            "TonnelName",
+            "FileName",
+            "FileContent"
+          ],
+          "properties": {
+            "FileContent": {
+              "type": "string"
+            },
+            "FileName": {
+              "type": "string"
+            },
+            "TonnelName": {
+              "type": "string"
+            }
+          }
+        },
+        "IPSecL2TPManualConfig": {
+          "type": "object",
+          "required": [
+            "Server",
+            "PSK",
+            "Username",
+            "Password"
+          ],
+          "properties": {
+            "PSK": {
+              "type": "string"
+            },
+            "Password": {
+              "type": "string"
+            },
+            "Server": {
+              "type": "string"
+            },
+            "Username": {
+              "type": "string"
+            }
+          }
+        },
+        "OutlineConfig": {
+          "type": "object",
+          "required": [
+            "AccessKey"
+          ],
+          "properties": {
+            "AccessKey": {
+              "type": "string"
+            }
+          }
+        },
+        "UserName": {
+          "type": "string"
+        },
+        "WireguardConfig": {
+          "type": "object",
+          "required": [
+            "TonnelName",
+            "FileName",
+            "FileContent"
+          ],
+          "properties": {
+            "FileContent": {
+              "type": "string"
+            },
+            "FileName": {
+              "type": "string"
+            },
+            "TonnelName": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "person": {
+      "type": "object",
+      "required": [
+        "Name",
+        "Desc",
+        "Gender",
+        "URL"
+      ],
+      "properties": {
+        "Desc": {
+          "type": "string"
+        },
+        "Gender": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "URL": {
           "type": "string"
         }
       }
@@ -214,9 +380,113 @@ func init() {
           }
         }
       }
+    },
+    "/v2/admin": {
+      "post": {
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "201": {
+            "description": "New user created.",
+            "schema": {
+              "$ref": "#/definitions/newadmin"
+            }
+          },
+          "403": {
+            "description": "You do not have necessary permissions for the resource"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "default": {
+            "description": "error",
+            "schema": {
+              "$ref": "#/definitions/error"
+            }
+          }
+        }
+      }
     }
   },
   "definitions": {
+    "NewuserAmnzOvcConfig": {
+      "type": "object",
+      "required": [
+        "TonnelName",
+        "FileName",
+        "FileContent"
+      ],
+      "properties": {
+        "FileContent": {
+          "type": "string"
+        },
+        "FileName": {
+          "type": "string"
+        },
+        "TonnelName": {
+          "type": "string"
+        }
+      }
+    },
+    "NewuserIPSecL2TPManualConfig": {
+      "type": "object",
+      "required": [
+        "Server",
+        "PSK",
+        "Username",
+        "Password"
+      ],
+      "properties": {
+        "PSK": {
+          "type": "string"
+        },
+        "Password": {
+          "type": "string"
+        },
+        "Server": {
+          "type": "string"
+        },
+        "Username": {
+          "type": "string"
+        }
+      }
+    },
+    "NewuserOutlineConfig": {
+      "type": "object",
+      "required": [
+        "AccessKey"
+      ],
+      "properties": {
+        "AccessKey": {
+          "type": "string"
+        }
+      }
+    },
+    "NewuserWireguardConfig": {
+      "type": "object",
+      "required": [
+        "TonnelName",
+        "FileName",
+        "FileContent"
+      ],
+      "properties": {
+        "FileContent": {
+          "type": "string"
+        },
+        "FileName": {
+          "type": "string"
+        },
+        "TonnelName": {
+          "type": "string"
+        }
+      }
+    },
     "admin": {
       "type": "object",
       "required": [
@@ -266,6 +536,140 @@ func init() {
           "type": "integer"
         },
         "message": {
+          "type": "string"
+        }
+      }
+    },
+    "newadmin": {
+      "type": "object",
+      "required": [
+        "Name",
+        "Mnemo",
+        "Configs",
+        "KeydeskIPv6",
+        "Person"
+      ],
+      "properties": {
+        "Configs": {
+          "$ref": "#/definitions/newuser"
+        },
+        "KeydeskIPv6": {
+          "type": "string"
+        },
+        "Mnemo": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Person": {
+          "$ref": "#/definitions/person"
+        }
+      }
+    },
+    "newuser": {
+      "type": "object",
+      "required": [
+        "UserName"
+      ],
+      "properties": {
+        "AmnzOvcConfig": {
+          "type": "object",
+          "required": [
+            "TonnelName",
+            "FileName",
+            "FileContent"
+          ],
+          "properties": {
+            "FileContent": {
+              "type": "string"
+            },
+            "FileName": {
+              "type": "string"
+            },
+            "TonnelName": {
+              "type": "string"
+            }
+          }
+        },
+        "IPSecL2TPManualConfig": {
+          "type": "object",
+          "required": [
+            "Server",
+            "PSK",
+            "Username",
+            "Password"
+          ],
+          "properties": {
+            "PSK": {
+              "type": "string"
+            },
+            "Password": {
+              "type": "string"
+            },
+            "Server": {
+              "type": "string"
+            },
+            "Username": {
+              "type": "string"
+            }
+          }
+        },
+        "OutlineConfig": {
+          "type": "object",
+          "required": [
+            "AccessKey"
+          ],
+          "properties": {
+            "AccessKey": {
+              "type": "string"
+            }
+          }
+        },
+        "UserName": {
+          "type": "string"
+        },
+        "WireguardConfig": {
+          "type": "object",
+          "required": [
+            "TonnelName",
+            "FileName",
+            "FileContent"
+          ],
+          "properties": {
+            "FileContent": {
+              "type": "string"
+            },
+            "FileName": {
+              "type": "string"
+            },
+            "TonnelName": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "person": {
+      "type": "object",
+      "required": [
+        "Name",
+        "Desc",
+        "Gender",
+        "URL"
+      ],
+      "properties": {
+        "Desc": {
+          "type": "string"
+        },
+        "Gender": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "URL": {
           "type": "string"
         }
       }

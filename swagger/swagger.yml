@@ -24,6 +24,25 @@ paths:
           description: error
           schema:
               $ref: "#/definitions/error"
+  /v2/admin:
+    post:
+      security:
+        - Bearer: []
+      produces:
+        - application/json
+      responses:
+        201:
+          description: New user created.
+          schema:
+            $ref: "#/definitions/newadmin"
+        403: 
+          description: 'You do not have necessary permissions for the resource'
+        500:
+          description: 'Internal server error'
+        default:
+          description: error
+          schema:
+              $ref: "#/definitions/error"
   /longping:
     post:
       produces:
@@ -69,6 +88,98 @@ definitions:
       PersonDesc:
         type: string
       PersonDescLink:
+        type: string
+  newadmin:
+    type: object
+    required:
+      - Name # UserName without number
+      - Mnemo
+      - Configs
+      - KeydeskIPv6
+      - Person
+    properties:
+      Name:
+        type: string
+      Mnemo:
+        type: string
+      Configs:
+        $ref: "#/definitions/newuser"
+      KeydeskIPv6:
+        type: string
+      Person:
+        $ref: "#/definitions/person"
+  newuser:
+    type: object
+    required:
+      - UserName
+    properties:
+      UserName:
+        type: string
+      WireguardConfig:
+        type: object
+        required:
+          - TonnelName
+          - FileName
+          - FileContent
+        properties:
+          TonnelName:
+            type: string
+          FileName:
+            type: string
+          FileContent:
+            type: string      
+      AmnzOvcConfig:
+        type: object
+        required:
+          - TonnelName
+          - FileName
+          - FileContent
+        properties:
+          TonnelName:
+            type: string
+          FileName:
+            type: string
+          FileContent:
+            type: string
+      IPSecL2TPManualConfig:
+        type: object
+        required:
+          - Server
+          - PSK
+          - Username
+          - Password
+        properties:
+          Server:
+            type: string
+          PSK:
+            type: string
+          Username:
+            type: string
+          Password:
+            type: string
+      OutlineConfig:
+        type: object
+        required:
+          - AccessKey
+        properties:
+          AccessKey:
+            type: string
+  person:
+    type: object
+    required:
+      - Name
+      - Desc
+      - Gender
+      - URL
+    properties:
+      Name:
+        type: string
+      Desc:
+        type: string
+      Gender:
+        type: integer
+        format: int32
+      URL:
         type: string
   error:
     type: object

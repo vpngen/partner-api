@@ -364,6 +364,10 @@ func initSwaggerAPI(
 		return embapi.AddAdmin(params, principal, sshConfig, addr)
 	})
 
+	api.PostV2AdminHandler = operations.PostV2AdminHandlerFunc(func(params operations.PostV2AdminParams, principal interface{}) middleware.Responder {
+		return embapi.AddAdminV2(params, principal, sshConfig, addr)
+	})
+
 	api.PostLongpingHandler = operations.PostLongpingHandlerFunc(func(params operations.PostLongpingParams) middleware.Responder {
 		return embapi.Longping(params)
 	})
