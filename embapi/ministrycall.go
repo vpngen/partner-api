@@ -3,17 +3,25 @@ package embapi
 import (
 	"bufio"
 	"bytes"
+	crand "crypto/rand"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io"
 	"math/rand"
 	"net/http/httputil"
 	"net/netip"
+	"net/url"
 	"os"
 	"strings"
 
+	"github.com/btcsuite/btcd/btcutil/base58"
+	"github.com/google/uuid"
+	"github.com/vpngen/keydesk/gen/models"
 	klib "github.com/vpngen/keydesk/kdlib"
+	"github.com/vpngen/keydesk/keydesk"
 	"github.com/vpngen/ministry"
 	"github.com/vpngen/partner-api/internal/kdlib"
 	"github.com/vpngen/wordsgens/namesgenerator"
@@ -249,9 +257,15 @@ func genGrantsV2() (*ministry.Answer, error) {
 
 	numbered := fmt.Sprintf("%03d %s", rand.Int31n(256), fullname)
 	tunname := kdlib.SanitizeFilename(numbered)
-	wgconf.Configs.WireguardConfig.FileName = &tunname
 	filename := tunname + ".conf"
-	wgconf.Configs.WireguardConfig.TonnelName = &filename
+
+	wgconf.Configs = models.Newuser{
+		UserName: &numbered,
+		WireguardConfig: &models.NewuserWireguardConfig{
+			FileName:   &filename,
+			TonnelName: &tunname,
+		},
+	}
 
 	wgkey, err := wgtypes.GenerateKey()
 	if err != nil {
@@ -292,6 +306,84 @@ AllowedIPs = 0.0.0.0/0,::/0
 	)
 
 	wgconf.Configs.WireguardConfig.FileContent = &text
+
+	secretRand := make([]byte, keydesk.OutlineSecretLen)
+	if _, err := crand.Read(secretRand); err != nil {
+		return nil, fmt.Errorf("secret rand: %w", err)
+	}
+
+	outlineSecret := base58.Encode(secretRand)
+
+	if len(outlineSecret) < keydesk.IPSecPasswordLen {
+		return nil, fmt.Errorf("encoded len err")
+	}
+
+	outlineSecret = outlineSecret[:keydesk.OutlineSecretLen]
+
+	accessKey := "ss://" + base64.StdEncoding.WithPadding(base64.NoPadding).EncodeToString(
+		fmt.Appendf([]byte{}, "chacha20-ietf-poly1305:%s@%s:%d", outlineSecret, ep, 46789),
+	) + "#" + url.QueryEscape(numbered)
+	wgconf.Configs.OutlineConfig = &models.NewuserOutlineConfig{
+		AccessKey: &accessKey,
+	}
+
+	cloakByPassUID := uuid.New()
+
+	cloakConfig, err := keydesk.NewCloackConfig(
+		ep.String(),
+		base64.StdEncoding.WithPadding(base64.StdPadding).EncodeToString(wgpub[:]),
+		base64.StdEncoding.WithPadding(base64.StdPadding).EncodeToString(cloakByPassUID[:]),
+		"chrome",
+		"openvpn",
+		"vk.com",
+	)
+	if err != nil {
+		return nil, fmt.Errorf("marshal cloak config: %w", err)
+	}
+
+	certOvcCA, _, err := klib.NewOvCA()
+	if err != nil {
+		return nil, fmt.Errorf("ov new ca: %w", err)
+	}
+
+	certOvcU, keyOvcU, err := klib.NewOvCA()
+	if err != nil {
+		return nil, fmt.Errorf("ov new user: %w", err)
+	}
+
+	keyOvcUPKCS8, err := x509.MarshalPKCS8PrivateKey(keyOvcU)
+	if err != nil {
+		return nil, fmt.Errorf("marshal key: %w", err)
+	}
+
+	openvpnConfig, err := keydesk.NewOpenVPNConfigJson(
+		"10.0.0.1",
+		ep.String(),
+		string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certOvcCA})),
+		string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certOvcU})),
+		string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyOvcUPKCS8})),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("marshal openvpn config: %w", err)
+	}
+
+	amneziaConfig := keydesk.NewAmneziaConfig(ep.String(), numbered, "1.1.1.1,8.8.8.8")
+	amneziaConfig.AddContainer(keydesk.NewAmneziaContainerWithOvc(cloakConfig, openvpnConfig, "{}"))
+	amneziaConfig.SetDefaultContainer("amnezia-openvpn-cloak")
+
+	amnzConf, err := amneziaConfig.Marshal()
+	if err != nil {
+		return nil, fmt.Errorf("amnz marshal: %w", err)
+	}
+
+	amneziaConfString := string(amnzConf)
+	afilename := tunname + ".vpn"
+
+	wgconf.Configs.AmnzOvcConfig = &models.NewuserAmnzOvcConfig{
+		FileContent: &amneziaConfString,
+		TonnelName:  &numbered,
+		FileName:    &afilename,
+	}
 
 	return wgconf, nil
 }
