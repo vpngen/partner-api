@@ -122,3 +122,14 @@ __NOTE:__ There is no token in the list just mnemonics of the key pairs. The som
 * Serice works with the minimum privileges. The service user is not a member of the sudoers group.
 * API token is a JWT token with HMAC 256 signature.
 * If API server handle HTTPS request, it will redirect all HTTP requests to HTTPS.
+
+## License
+
+This project is licensed under the Mozilla Public License 2.0. See the [LICENSE](LICENSE) file for more details.
+
+## Copyright
+
+Copyright 2022-2024 IEDN gGmbH
+
+See the [COPYRIGHT](COPYRIGHT) file for detailed copyright information.
+
